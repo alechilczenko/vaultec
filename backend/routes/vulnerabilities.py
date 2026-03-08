@@ -65,7 +65,7 @@ def create_vulnerability(vulnerability: schemas.VulnerabilityCreate, db: Session
     return db_vulnerability
 
 
-@router.patch("/{v_id}", response_model=schemas.VulnerabilityRead)
+@router.patch("/{v_id}", response_model=schemas.VulnerabilityGrouped)
 def update_vulnerability(v_id: int, data: schemas.VulnerabilityUpdate, db: Session = Depends(get_db)):
     # Find the instance of vulnerability
     db_v = db.query(models.Vulnerability).filter(models.Vulnerability.id == v_id).first()
@@ -90,7 +90,9 @@ def update_vulnerability(v_id: int, data: schemas.VulnerabilityUpdate, db: Sessi
 
     db.commit()
     db.refresh(db_v)
-    return db_v
+    db.refresh(db_v.definition)
+
+    return db_v.definition
 
 @router.delete("/instance/{v_id}", status_code=204)
 def delete_vulnerability_instance(v_id: int, db: Session = Depends(get_db)):

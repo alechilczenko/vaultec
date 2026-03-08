@@ -22,7 +22,7 @@ class VulnerabilityDefinition(Base):
     severity = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     recommendation = Column(Text, nullable=True)
-    vulnerabilities = relationship("Vulnerability", back_populates="definition", cascade="all, delete-orphan")
+    instances = relationship("Vulnerability", back_populates="definition", cascade="all, delete-orphan")
 
 class Vulnerability(Base):
     __tablename__ = "vulnerabilities"
@@ -31,7 +31,7 @@ class Vulnerability(Base):
     status = Column(String, default="open")
     asset_id = Column(Integer, ForeignKey("assets.id"))
     definition_id = Column(Integer, ForeignKey("vulnerability_definitions.id"))
-    definition = relationship("VulnerabilityDefinition", back_populates="vulnerabilities")
+    definition = relationship("VulnerabilityDefinition", back_populates="instances")
     asset = relationship("Asset")
 
 class Note(Base):

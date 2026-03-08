@@ -17,7 +17,6 @@ class UserRead(BaseModel):
         from_attributes = True
 
 class AssetRead(BaseModel):
-    id: int
     name: str
     type: str
 

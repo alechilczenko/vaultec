@@ -45,7 +45,7 @@ def format_vulnerability_grouped(defn):
         "severity": defn.severity,
         "description": defn.description,
         "recommendation": defn.recommendation,
-        "instances": defn.vulnerabilities  # Relación con las instancias
+        "instances": defn.instances
     }
 
 def get_severity_stats(db: Session):
