@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from db import engine
 from models import Base
 from auth_setup import setup_admin_user
-from routes import vulnerabilities
+from routes import vulnerabilities, notes
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -16,3 +16,4 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(vulnerabilities.router)
+app.include_router(notes.router)
