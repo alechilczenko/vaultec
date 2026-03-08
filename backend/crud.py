@@ -32,3 +32,17 @@ def get_note_or_404(db: Session, note_id: int):
         raise HTTPException(status_code=404, detail="Note not found")
     
     return db_note
+
+def format_vulnerability_grouped(defn):
+    """
+    Helper function to transform a database definition object 
+    into a dictionary structure for the API response.
+    """
+    return {
+        "id": defn.id,
+        "title": defn.title,
+        "severity": defn.severity,
+        "description": defn.description,
+        "recommendation": defn.recommendation,
+        "instances": defn.vulnerabilities  # Relación con las instancias
+    }

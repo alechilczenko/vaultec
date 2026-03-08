@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from db import get_db
-from crud import get_or_create_definition
+from crud import get_or_create_definition, format_vulnerability_grouped
 import models, schemas
 
 router = APIRouter(
@@ -15,17 +15,7 @@ def get_vulnerabilities_grouped(db: Session = Depends(get_db)):
 
     definitions = db.query(models.VulnerabilityDefinition).all()
     
-    results = []
-    for defn in definitions:
-        results.append({
-            "id": defn.id,
-            "title": defn.title,
-            "severity": defn.severity,
-            "description": defn.description,
-            "recommendation": defn.recommendation,
-            "instances": defn.vulnerabilities
-        })
-    return results
+    return [format_vulnerability_grouped(defn) for defn in definitions]
 
 @router.get("/search", response_model=List[schemas.VulnerabilityGrouped])
 def search_vulnerabilities_by_title(title: str, db: Session = Depends(get_db)):
@@ -34,17 +24,7 @@ def search_vulnerabilities_by_title(title: str, db: Session = Depends(get_db)):
         models.VulnerabilityDefinition.title.ilike(f"%{title}%")
     ).all()
 
-    results = []
-    for defn in definitions:
-        results.append({
-            "id": defn.id,
-            "title": defn.title,
-            "severity": defn.severity,
-            "description": defn.description,
-            "recommendation": defn.recommendation,
-            "instances": defn.vulnerabilities
-        })
-    return results
+    return [format_vulnerability_grouped(defn) for defn in definitions]
 
 @router.post("", response_model=schemas.VulnerabilityRead)
 def create_vulnerability(vulnerability: schemas.VulnerabilityCreate, db: Session = Depends(get_db)):
