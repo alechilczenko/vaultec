@@ -33,3 +33,9 @@ class Vulnerability(Base):
     definition_id = Column(Integer, ForeignKey("vulnerability_definitions.id"))
     definition = relationship("VulnerabilityDefinition", back_populates="vulnerabilities")
     asset = relationship("Asset")
+
+class Note(Base):
+    __tablename__ = "notes"
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    content = Column(Text, nullable=False)
