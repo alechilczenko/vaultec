@@ -2,13 +2,17 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from db import get_db
-from crud import get_or_create_definition, format_vulnerability_grouped
+from crud import get_or_create_definition, format_vulnerability_grouped, get_severity_stats
 import models, schemas
 
 router = APIRouter(
     prefix="/vulnerability",
     tags=["Vulnerabilities"]
 )
+
+@router.get("/stats")
+def get_vulnerability_stats(db: Session = Depends(get_db)):
+    return get_severity_stats(db)
 
 @router.get("/list", response_model=List[schemas.VulnerabilityGrouped])
 def get_vulnerabilities_grouped(db: Session = Depends(get_db)):

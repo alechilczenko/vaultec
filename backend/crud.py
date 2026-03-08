@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from fastapi import HTTPException
 import models
 
@@ -46,3 +47,13 @@ def format_vulnerability_grouped(defn):
         "recommendation": defn.recommendation,
         "instances": defn.vulnerabilities  # Relación con las instancias
     }
+
+def get_severity_stats(db: Session):
+    # Query to group by severity and count occurrences
+    stats = db.query(
+        models.VulnerabilityDefinition.severity,
+        func.count(models.VulnerabilityDefinition.id)
+    ).group_by(models.VulnerabilityDefinition.severity).all()
+    
+    # Transform list of tuples into a clean dictionary
+    return {severity: count for severity, count in stats}
