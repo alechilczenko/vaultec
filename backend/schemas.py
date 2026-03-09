@@ -17,6 +17,7 @@ class UserRead(BaseModel):
         from_attributes = True
 
 class AssetRead(BaseModel):
+    id: int
     name: str
     type: str
 
@@ -26,6 +27,10 @@ class AssetRead(BaseModel):
 class AssetCreate(BaseModel):
     name: str
     type: str
+
+class AssetUpdate(BaseModel):
+    name: Optional[str] = None
+    type: Optional[str] = None
 
 class VulnerabilityDefinitionRead(BaseModel):
     title: str
@@ -41,7 +46,7 @@ class VulnerabilityCreate(BaseModel):
     recommendation: Optional[str] = None
     severity: SeverityEnum
     status: Optional[str] = "open"
-    asset: AssetCreate
+    asset: List[AssetCreate]
 
 class VulnerabilityRead(BaseModel):
     id: int
@@ -78,6 +83,7 @@ class VulnerabilityUpdate(BaseModel):
     description: Optional[str] = None
     recommendation: Optional[str] = None
     status: Optional[str] = None
+    asset: Optional[AssetUpdate] = None
 
 class NoteCreate(BaseModel):
     # Field(...) means it is required
