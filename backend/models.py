@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Text
+from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, Text
 from sqlalchemy.orm import relationship
 from db import Base
 
@@ -6,7 +6,8 @@ class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
-    password = Column(String)
+    hashed_password = Column(String)
+    is_active = Column(Boolean, default=True)
 
 class Asset(Base):
     __tablename__ = "assets"
