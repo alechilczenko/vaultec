@@ -1,3 +1,9 @@
+"""
+Vulnerability Management Platform
+Copyright (C) 2026 Alejandro Chilczenko
+Licensed under GNU GPLv3 - See the LICENSE file for details
+"""
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session

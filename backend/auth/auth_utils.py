@@ -1,3 +1,9 @@
+"""
+Vulnerability Management Platform
+Copyright (C) 2026 Alejandro Chilczenko
+Licensed under GNU GPLv3 - See the LICENSE file for details
+"""
+
 from fastapi.security import OAuth2PasswordBearer
 from fastapi import Depends, HTTPException, status
 from db import get_db

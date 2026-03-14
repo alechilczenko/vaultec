@@ -1,3 +1,9 @@
+"""
+Vulnerability Management Platform
+Copyright (C) 2026 Alejandro Chilczenko
+Licensed under GNU GPLv3 - See the LICENSE file for details
+"""
+
 import enum
 
 class SeverityEnum(str, enum.Enum):

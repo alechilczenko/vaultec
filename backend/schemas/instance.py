@@ -1,3 +1,9 @@
+"""
+Vulnerability Management Platform
+Copyright (C) 2026 Alejandro Chilczenko
+Licensed under GNU GPLv3 - See the LICENSE file for details
+"""
+
 from typing import List, Optional
 from pydantic import BaseModel
 from .asset import AssetCreate, AssetRead, AssetUpdate

@@ -1,3 +1,9 @@
+"""
+Vulnerability Management Platform
+Copyright (C) 2026 Alejandro Chilczenko
+Licensed under GNU GPLv3 - See the LICENSE file for details
+"""
+
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from fastapi import HTTPException

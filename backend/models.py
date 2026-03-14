@@ -1,3 +1,9 @@
+"""
+Vulnerability Management Platform
+Copyright (C) 2026 Alejandro Chilczenko
+Licensed under GNU GPLv3 - See the LICENSE file for details
+"""
+
 from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, Text
 from sqlalchemy.orm import relationship
 from db import Base
