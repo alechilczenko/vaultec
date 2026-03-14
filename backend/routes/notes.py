@@ -7,9 +7,9 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
-import models, schemas
-from db import get_db
-from crud import get_note_or_404
+import database.models as models, schemas
+from database.db import get_db
+from database.crud import get_note_or_404
 
 router = APIRouter(
     prefix="/notes",

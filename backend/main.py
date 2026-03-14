@@ -6,8 +6,8 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 
 from fastapi import Depends, FastAPI
 from contextlib import asynccontextmanager
-from db import engine
-from models import Base
+from database.db import engine
+from database.models import Base
 from auth.auth_setup import setup_admin_user
 from auth.auth_utils import get_current_user
 from routes import vulnerabilities, notes, auth

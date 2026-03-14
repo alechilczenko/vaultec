@@ -6,7 +6,7 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 
 from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, Text
 from sqlalchemy.orm import relationship
-from db import Base
+from database.db import Base
 
 class User(Base):
     __tablename__ = "users"

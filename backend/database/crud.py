@@ -7,7 +7,7 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from fastapi import HTTPException
-import models
+import database.models as models
 
 def get_or_create_definition(db: Session, title: str, severity: str, description: str, recommendation: str):
     # Search if exists

@@ -6,14 +6,14 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 
 from fastapi.security import OAuth2PasswordBearer
 from fastapi import Depends, HTTPException, status
-from db import get_db
+from database.db import get_db
 from datetime import datetime, timedelta, timezone
 from jose import jwt, JWTError
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 import os
-import models
+import database.models as models
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 

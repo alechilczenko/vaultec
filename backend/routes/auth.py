@@ -7,10 +7,10 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from db import get_db
+from database.db import get_db
 from auth.auth_utils import verify_password, create_access_token
 from schemas import auth
-import models
+import database.models as models
 
 router = APIRouter(
     prefix="/auth",

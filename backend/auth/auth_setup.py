@@ -5,11 +5,11 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 """
 
 from dotenv import load_dotenv
-from db import SessionLocal
+from database.db import SessionLocal
 import os
 import secrets
 import string
-import models
+import database.models as models
 
 from .auth_utils import hash_password
 

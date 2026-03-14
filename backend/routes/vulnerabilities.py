@@ -7,9 +7,9 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
-from db import get_db
-from crud import get_or_create_definition, format_vulnerability_grouped, get_severity_stats
-import models, schemas
+from database.db import get_db
+from database.crud import get_or_create_definition, format_vulnerability_grouped, get_severity_stats
+import database.models as models, schemas
 
 router = APIRouter(
     prefix="/vulnerability",
