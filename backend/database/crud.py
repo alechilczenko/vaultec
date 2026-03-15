@@ -4,24 +4,27 @@ Copyright (C) 2026 Alejandro Chilczenko
 Licensed under GNU GPLv3 - See the LICENSE file for details
 """
 
+from typing import List
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from fastapi import HTTPException
 import database.models as models
 
-def get_or_create_definition(db: Session, title: str, severity: str, description: str, recommendation: str, tags: str):
+def get_or_create_definition(db: Session, title: str, severity: str, description: str, recommendation: str, tags: List[str]):
     # Search if exists
     defn = db.query(models.VulnerabilityDefinition).filter(
         models.VulnerabilityDefinition.title == title
     ).first()
     
+    tags_string = ",".join(tags) if tags else None
+
     if not defn:
         defn = models.VulnerabilityDefinition(
             title=title,
             severity=severity,
             description=description,
             recommendation=recommendation,
-            tags=tags
+            tags=tags_string
         )
         db.add(defn)
         db.commit()
@@ -46,13 +49,15 @@ def format_vulnerability_grouped(defn):
     Helper function to transform a database definition object 
     into a dictionary structure for the API response.
     """
+    tags_list = [tag.strip() for tag in defn.tags.split(",")] if defn.tags else []
+
     return {
         "id": defn.id,
         "title": defn.title,
         "severity": defn.severity,
         "description": defn.description,
         "recommendation": defn.recommendation,
-        "tags": defn.tags,
+        "tags": tags_list,
         "instances": defn.instances
     }
 
