@@ -9,7 +9,8 @@ from sqlalchemy.orm import Session
 from typing import List
 from database.db import get_db
 from database.crud import get_or_create_definition, format_vulnerability_grouped, get_severity_stats
-import database.models as models, schemas
+import database.models as models
+import schemas
 
 router = APIRouter(
     prefix="/vulnerability",
@@ -44,21 +45,27 @@ def create_vulnerabilities(vulnerability: schemas.VulnerabilityCreate, db: Sessi
         vulnerability.title,
         vulnerability.severity,
         vulnerability.description, 
-        vulnerability.recommendation
+        vulnerability.recommendation,
+        vulnerability.tags
     )
    
-    for asset_data in vulnerability.assets:
+    for finding in vulnerability.findings:
 
-        db_asset = db.query(models.Asset).filter(models.Asset.name == asset_data.name).first()
+        # Validate if asset exists
+        db_asset = db.query(models.Asset).filter(models.Asset.id == finding.asset_id).first()
         if not db_asset:
-            db_asset = models.Asset(name=asset_data.name, type=asset_data.type)
-            db.add(db_asset)
-            db.flush()
+            raise HTTPException(status_code=404, detail=f"Asset with ID: {finding.asset_id} not found")
 
+        # Set instance
         db_v = models.Vulnerability(
             definition_id=defn.id,
-            status=vulnerability.status,
-            asset_id=db_asset.id
+            asset_id=db_asset.id,
+            status=finding.status,
+            evidence_type=finding.evidence_type,
+            http_request=finding.http_request,
+            http_response=finding.http_response,
+            general_evidence=finding.general_evidence,
+            discovered_by=finding.discovered_by
         )
         db.add(db_v)
 
@@ -67,47 +74,35 @@ def create_vulnerabilities(vulnerability: schemas.VulnerabilityCreate, db: Sessi
         
     return defn
 
-@router.patch("/{instance_id}", response_model=schemas.VulnerabilityGrouped)
-def update_vulnerability(instance_id: int, data: schemas.VulnerabilityUpdate, db: Session = Depends(get_db)):
-    # Find the instance of vulnerability
+@router.patch("/instances/{instance_id}", response_model=schemas.VulnerabilityInstance)
+def update_vulnerability_instance(instance_id: int, data: schemas.VulnerabilityInstanceUpdate, db: Session = Depends(get_db)):
     db_v = db.query(models.Vulnerability).filter(models.Vulnerability.id == instance_id).first()
     if not db_v:
-        raise HTTPException(status_code=404, detail="Vulnerability not found")
+        raise HTTPException(status_code=404, detail="Instance not found")
 
-    # Update Status (this is individual to this instance)
-    if data.status is not None:
-        db_v.status = data.status
-
-    # Update the Definition (this affects all assets with this title)
-    # If a title, description, recommendation, or severity rating is submitted
-
-    if any([data.title, data.severity, data.description, data.recommendation]):
-        defn = db_v.definition
-        if data.title: defn.title = data.title
-        if data.severity: defn.severity = data.severity
-        if data.description: defn.description = data.description
-        if data.recommendation: defn.recommendation = data.recommendation
-        
-        db.add(defn)
-
-    # Update Asset
-    if data.asset:
-        asset_to_update = db_v.asset
-        if asset_to_update:
-            if data.asset.name is not None:
-                asset_to_update.name = data.asset.name
-            if data.asset.type is not None:
-                asset_to_update.type = data.asset.type
-            
-            db.add(asset_to_update)
-            db.flush() 
-            db.refresh(asset_to_update)
+    update_data = data.model_dump(exclude_unset=True)
     
+    for key, value in update_data.items():
+        setattr(db_v, key, value)
+        
     db.commit()
     db.refresh(db_v)
-    db.refresh(db_v.definition)
+    return db_v
 
-    return db_v.definition
+@router.patch("/definitions/{definition_id}", response_model=schemas.VulnerabilityDefinitionRead)
+def update_vulnerability_definition(definition_id: int, data: schemas.VulnerabilityDefinitionUpdate, db: Session = Depends(get_db)):
+    defn = db.query(models.VulnerabilityDefinition).filter(models.VulnerabilityDefinition.id == definition_id).first()
+    if not defn:
+        raise HTTPException(status_code=404, detail="Definition not found")
+
+    update_data = data.model_dump(exclude_unset=True)
+    
+    for key, value in update_data.items():
+        setattr(defn, key, value)
+
+    db.commit()
+    db.refresh(defn)
+    return defn
 
 @router.delete("/instance/{instance_id}", status_code=204)
 def delete_vulnerability_instance(instance_id: int, db: Session = Depends(get_db)):
