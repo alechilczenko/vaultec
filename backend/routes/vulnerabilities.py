@@ -97,6 +97,9 @@ def update_vulnerability_definition(definition_id: int, data: schemas.Vulnerabil
 
     update_data = data.model_dump(exclude_unset=True)
     
+    if "tags" in update_data and isinstance(update_data["tags"], list):
+        update_data["tags"] = ",".join(update_data["tags"])
+
     for key, value in update_data.items():
         setattr(defn, key, value)
 
