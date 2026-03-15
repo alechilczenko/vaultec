@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 import os
 import database.models as models
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
 
 load_dotenv()
 
