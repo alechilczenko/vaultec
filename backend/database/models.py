@@ -4,7 +4,7 @@ Copyright (C) 2026 Alejandro Chilczenko
 Licensed under GNU GPLv3 - See the LICENSE file for details
 """
 
-from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, Text
+from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String, ForeignKey, Text, func
 from sqlalchemy.orm import relationship
 from database.db import Base
 
@@ -29,13 +29,19 @@ class VulnerabilityDefinition(Base):
     severity = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     recommendation = Column(Text, nullable=True)
+    tags = Column(String, nullable=True)
     instances = relationship("Vulnerability", back_populates="definition", cascade="all, delete-orphan")
 
 class Vulnerability(Base):
     __tablename__ = "vulnerabilities"
     id = Column(Integer, primary_key=True)
-    severity = Column(String)
     status = Column(String, default="open")
+    evidence_type = Column(String) # "http", "terminal", "log"
+    http_request = Column(Text, nullable=True)
+    http_response = Column(Text, nullable=True)
+    general_evidence = Column(Text, nullable=True)
+    discovered_by = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
     asset_id = Column(Integer, ForeignKey("assets.id"))
     definition_id = Column(Integer, ForeignKey("vulnerability_definitions.id"))
     definition = relationship("VulnerabilityDefinition", back_populates="instances")

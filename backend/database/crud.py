@@ -9,7 +9,7 @@ from sqlalchemy import func
 from fastapi import HTTPException
 import database.models as models
 
-def get_or_create_definition(db: Session, title: str, severity: str, description: str, recommendation: str):
+def get_or_create_definition(db: Session, title: str, severity: str, description: str, recommendation: str, tags: str):
     # Search if exists
     defn = db.query(models.VulnerabilityDefinition).filter(
         models.VulnerabilityDefinition.title == title
@@ -20,7 +20,8 @@ def get_or_create_definition(db: Session, title: str, severity: str, description
             title=title,
             severity=severity,
             description=description,
-            recommendation=recommendation
+            recommendation=recommendation,
+            tags=tags
         )
         db.add(defn)
         db.commit()
@@ -51,6 +52,7 @@ def format_vulnerability_grouped(defn):
         "severity": defn.severity,
         "description": defn.description,
         "recommendation": defn.recommendation,
+        "tags": defn.tags,
         "instances": defn.instances
     }
 
