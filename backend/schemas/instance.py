@@ -23,9 +23,8 @@ class VulnerabilityCreate(BaseModel):
     description: Optional[str] = None
     recommendation: Optional[str] = None
     severity: SeverityEnum
-    tags: Optional[str] = None
+    tags: List[str] = []
     findings: List[AssetFinding]
-    
 
 class VulnerabilityInstance(BaseModel):
     id: int
