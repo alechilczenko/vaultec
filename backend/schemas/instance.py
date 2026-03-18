@@ -9,6 +9,16 @@ from pydantic import BaseModel
 from .asset import AssetRead
 from .enums import SeverityEnum
 
+class VulnerabilityByAsset(BaseModel):
+    instance_id: int
+    asset_name: str
+    title: str
+    severity: str
+    status: str
+    
+    class Config:
+        from_attributes = True
+
 class AssetFinding(BaseModel):
     asset_id: int
     status: Optional[str] = "open"
@@ -19,12 +29,13 @@ class AssetFinding(BaseModel):
     discovered_by: Optional[str] = None
 
 class VulnerabilityCreate(BaseModel):
+    definition_id: Optional[int] = None
     title: str
     description: Optional[str] = None
     recommendation: Optional[str] = None
     severity: SeverityEnum
     tags: List[str] = []
-    findings: List[AssetFinding]
+    finding: AssetFinding
 
 class VulnerabilityInstance(BaseModel):
     id: int
