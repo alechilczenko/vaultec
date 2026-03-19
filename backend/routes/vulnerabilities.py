@@ -21,8 +21,8 @@ router = APIRouter(
 def get_vulnerability_stats(db: Session = Depends(get_db)):
     return get_severity_stats(db)
 
-@router.get("/list", response_model=List[schemas.VulnerabilityGrouped])
-def get_vulnerabilities_grouped(db: Session = Depends(get_db)):
+@router.get("/by-definition", response_model=List[schemas.VulnerabilityGrouped])
+def get_vulnerabilities_by_definition(db: Session = Depends(get_db)):
 
     definitions = db.query(models.VulnerabilityDefinition).all()
     
@@ -56,7 +56,6 @@ def search_vulnerabilities_by_title(title: str, db: Session = Depends(get_db)):
     definitions = db.query(models.VulnerabilityDefinition).filter(
         models.VulnerabilityDefinition.title.ilike(f"%{title}%")
     ).all()
-
     return [format_vulnerability_grouped(defn) for defn in definitions]
 
 @router.post("", response_model=schemas.VulnerabilityGrouped)
