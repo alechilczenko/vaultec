@@ -43,23 +43,6 @@ def get_note_or_404(db: Session, note_id: int):
     
     return db_note
 
-def format_vulnerability_grouped(defn):
-    """
-    Helper function to transform a database definition object 
-    into a dictionary structure for the API response.
-    """
-    tags_list = [tag.strip() for tag in defn.tags.split(",")] if defn.tags else []
-
-    return {
-        "id": defn.id,
-        "title": defn.title,
-        "severity": defn.severity,
-        "description": defn.description,
-        "recommendation": defn.recommendation,
-        "tags": tags_list,
-        "instances": defn.instances
-    }
-
 def get_severity_stats(db: Session):
     # Query to group by severity and count occurrences
     stats = db.query(
