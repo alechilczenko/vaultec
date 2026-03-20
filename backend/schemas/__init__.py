@@ -6,10 +6,7 @@ from .user import UserRead
 from .vulnerability import (
     VulnerabilityDefinitionRead,
     VulnerabilityDefinitionUpdate,
-    VulnerabilityGrouped,
     VulnerabilityCreate,
-    AssetFinding,
-    VulnerabilityInstance,
     VulnerabilityInstanceUpdate,
     VulnerabilityByAsset,
     VulnerabilityFullRead
