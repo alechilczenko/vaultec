@@ -34,7 +34,7 @@ def create_note(note: schemas.NoteCreate, db: Session = Depends(get_db)):
     
     return db_note
 
-@router.patch("/{note_id}", response_model=schemas.NoteRead)
+@router.patch("/{id}", response_model=schemas.NoteRead)
 def update_note(note_id: int, note_update: schemas.NoteUpdate, db: Session = Depends(get_db)):
 
     db_note = get_note_or_404(db, note_id)
@@ -48,7 +48,7 @@ def update_note(note_id: int, note_update: schemas.NoteUpdate, db: Session = Dep
 
     return db_note
 
-@router.delete("/{note_id}", status_code=204)
+@router.delete("/{id}", status_code=204)
 def delete_note(note_id: int, db: Session = Depends(get_db)):
    
     db_note = get_note_or_404(db, note_id)

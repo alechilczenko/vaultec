@@ -32,7 +32,7 @@ def create_asset(asset: schemas.AssetCreate, db: Session = Depends(get_db)):
     db.refresh(new_asset)
     return new_asset
 
-@router.patch("/{asset_id}", response_model=schemas.AssetRead)
+@router.patch("/{id}", response_model=schemas.AssetRead)
 def update_asset(asset_id: int, asset_data: schemas.AssetUpdate, db: Session = Depends(get_db)):
 
     db_asset = db.query(models.Asset).filter(models.Asset.id == asset_id).first()
@@ -86,7 +86,7 @@ def import_assets(assets: List[schemas.AssetCreate], db: Session = Depends(get_d
         "skipped": skipped_count
     }
 
-@router.delete("/{asset_id}", status_code=204)
+@router.delete("/{id}", status_code=204)
 def delete_asset(asset_id: int, db: Session = Depends(get_db)):
     db_asset = db.query(models.Asset).filter(models.Asset.id == asset_id).first()
     if not db_asset:
