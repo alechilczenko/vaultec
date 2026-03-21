@@ -4,7 +4,7 @@ Copyright (C) 2026 Alejandro Chilczenko
 Licensed under GNU GPLv3 - See the LICENSE file for details
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional
 
 class NoteCreate(BaseModel):
@@ -19,8 +19,7 @@ class NoteRead(BaseModel):
     title: str
     content: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class NoteUpdate(BaseModel):
     # Optional[] allows the field to be missing in the request
@@ -28,5 +27,4 @@ class NoteUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=1, strip_whitespace=True)
     content: Optional[str] = Field(None, min_length=1, strip_whitespace=True)
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
