@@ -17,10 +17,6 @@ router = APIRouter(
     tags=["Findings (Instances)"]
 )
 
-@router.get("/stats")
-def get_vulnerability_stats(db: Session = Depends(get_db)):
-    return get_severity_stats(db)
-
 @router.get("/by-asset", response_model=List[schemas.VulnerabilityByAsset])
 def get_vulnerabilities_by_asset(db: Session = Depends(get_db)):
     results = db.query(
@@ -34,6 +30,20 @@ def get_vulnerabilities_by_asset(db: Session = Depends(get_db)):
      .all()
 
     return results
+
+@router.get("/{id}", response_model=schemas.VulnerabilityFullRead)
+def get_finding_detail(id: int, db: Session = Depends(get_db)):
+    finding = db.query(models.Vulnerability).filter(models.Vulnerability.id == id).first()
+    
+    if not finding:
+        raise HTTPException(status_code=404, detail="Finding not found")
+    
+    return finding
+
+@router.get("/stats")
+def get_vulnerability_stats(db: Session = Depends(get_db)):
+    return get_severity_stats(db)
+
 
 @router.post("/create", response_model=schemas.VulnerabilityFullRead)
 def create_vulnerabilities(vulnerability: schemas.VulnerabilityCreate, db: Session = Depends(get_db)):
