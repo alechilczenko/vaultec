@@ -10,7 +10,7 @@ from database.db import engine
 from database.models import Base
 from auth.auth_setup import setup_admin_user
 from auth.auth_utils import get_current_user
-from routes import catalog, findings, notes, auth, assets
+from routes import catalog, findings, notes, auth, assets, admin
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -29,3 +29,4 @@ app.include_router(catalog.router,dependencies=[Depends(get_current_user)])
 app.include_router(findings.router,dependencies=[Depends(get_current_user)])
 app.include_router(notes.router,dependencies=[Depends(get_current_user)])
 app.include_router(assets.router,dependencies=[Depends(get_current_user)])
+app.include_router(admin.router,dependencies=[Depends(get_current_user)])
