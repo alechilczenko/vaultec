@@ -16,6 +16,15 @@ router = APIRouter(
     tags=["Catalog (Vulnerability Definitions)"]
 )
 
+@router.get("/{id}", response_model=schemas.VulnerabilityDefinitionRead)
+def get_catalog_entry(id: int, db: Session = Depends(get_db)):
+    defn = db.query(models.VulnerabilityDefinition).filter(models.VulnerabilityDefinition.id == id).first()
+    
+    if not defn:
+        raise HTTPException(status_code=404, detail="Definition not found")
+    
+    return defn
+
 @router.get("/search", response_model=List[schemas.VulnerabilityDefinitionRead])
 def search_definitions(q: str, db: Session = Depends(get_db)):
 
