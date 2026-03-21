@@ -106,7 +106,7 @@ def create_vulnerabilities(vulnerability: schemas.VulnerabilityCreate, db: Sessi
         raise HTTPException(status_code=500, detail=str(e))
     return db_v
 
-@router.patch("/{id}", response_model=schemas.VulnerabilityFullRead)
+@router.patch("/{id}", response_model=schemas.VulnerabilityInstanceUpdate)
 def update_vulnerability_instance(instance_id: int, data: schemas.VulnerabilityInstanceUpdate, db: Session = Depends(get_db)):
     db_v = db.query(models.Vulnerability).filter(models.Vulnerability.id == instance_id).first()
     if not db_v:
