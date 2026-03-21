@@ -51,6 +51,50 @@ def update_vulnerability_definition(definition_id: int, data: schemas.Vulnerabil
     db.refresh(defn)
     return defn
 
+@router.post("/import", status_code=201)
+def import_catalog_definitions(data: schemas.CatalogImport, db: Session = Depends(get_db)):
+    created_count = 0
+    updated_count = 0
+
+    for item in data.definitions:
+        existing = db.query(models.VulnerabilityDefinition).filter(
+            models.VulnerabilityDefinition.title == item.title
+        ).first()
+
+        tag_str = ",".join(item.tags) if item.tags else ""
+
+        if existing:
+            existing.severity = item.severity
+            existing.description = item.description
+            existing.recommendation = item.recommendation
+            existing.tags = tag_str
+            updated_count += 1
+        else:
+            new_defn = models.VulnerabilityDefinition(
+                title=item.title,
+                severity=item.severity,
+                description=item.description,
+                recommendation=item.recommendation,
+                tags=tag_str
+            )
+            db.add(new_defn)
+            created_count += 1
+
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
+    return {
+        "status": "success",
+        "details": {
+            "created": created_count,
+            "updated": updated_count,
+            "total_processed": len(data.definitions)
+        }
+    }
+
 @router.delete("/{id}", status_code=204)
 def delete_vulnerability_definition(def_id: int, db: Session = Depends(get_db)):
     db_def = db.query(models.VulnerabilityDefinition).filter(
