@@ -42,6 +42,7 @@ class Vulnerability(Base):
     general_evidence = Column(Text, nullable=True)
     discovered_by = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    notes = Column(Text, nullable=True)
     asset_id = Column(Integer, ForeignKey("assets.id"))
     definition_id = Column(Integer, ForeignKey("vulnerability_definitions.id"))
     definition = relationship("VulnerabilityDefinition", back_populates="instances")

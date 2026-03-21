@@ -9,5 +9,6 @@ from .vulnerability import (
     VulnerabilityCreate,
     VulnerabilityInstanceUpdate,
     VulnerabilityByAsset,
-    VulnerabilityFullRead
+    VulnerabilityFullRead,
+    CatalogImport
 )
