@@ -20,6 +20,7 @@ router = APIRouter(
 @router.get("/by-asset", response_model=List[schemas.VulnerabilityByAsset])
 def get_vulnerabilities_by_asset(db: Session = Depends(get_db)):
     results = db.query(
+        models.Vulnerability.created_at,
         models.Asset.name.label("asset_name"),
         models.VulnerabilityDefinition.title,
         models.VulnerabilityDefinition.severity,
@@ -52,7 +53,16 @@ def create_vulnerabilities(vulnerability: schemas.VulnerabilityCreate, db: Sessi
     """
     # 1. Prepare Definition Data (The Catalog part)
     # Extract all fields except 'findings' as they don't belong to the Definition table.
-    def_data = vulnerability.model_dump(exclude={"finding"}) 
+    def_data = vulnerability.model_dump(exclude={
+    "asset_id", 
+    "status", 
+    "evidence_type", 
+    "http_request", 
+    "http_response", 
+    "general_evidence", 
+    "discovered_by", 
+    "notes" # <--- ESTE es el que te estaba dando el error 500
+    })
     
     # Extract keys used for the lookup logic
     v_id = def_data.pop("definition_id", None)
@@ -84,7 +94,8 @@ def create_vulnerabilities(vulnerability: schemas.VulnerabilityCreate, db: Sessi
     http_request=vulnerability.http_request,
     http_response=vulnerability.http_response,
     general_evidence=vulnerability.general_evidence,
-    discovered_by=vulnerability.discovered_by
+    discovered_by=vulnerability.discovered_by,
+    notes=vulnerability.notes
     )
     db.add(db_v)
     try:
