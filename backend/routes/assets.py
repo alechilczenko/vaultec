@@ -69,7 +69,8 @@ def import_assets(assets: List[schemas.AssetCreate], db: Session = Depends(get_d
         if asset_data.name not in existing_names:
             new_assets_objs.append(models.Asset(
                 name=asset_data.name,
-                type=asset_data.type
+                type=asset_data.type,
+                description=asset_data.description
             ))
             existing_names.add(asset_data.name)
             added_count += 1

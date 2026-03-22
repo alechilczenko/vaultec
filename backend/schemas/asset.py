@@ -5,19 +5,28 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 """
 
 from typing import Optional
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+from enum import Enum
+from datetime import datetime
+
+class AssetType(str, Enum):
+    IP = "IP"
+    URL = "URL"
+    FQDN = "FQDN"
 
 class AssetRead(BaseModel):
     id: int
     name: str
     type: str
-
+    created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
 class AssetCreate(BaseModel):
-    name: str
-    type: str
+    name: str = Field(..., examples=["192.168.1.10", "https://api.example.com"])
+    type: AssetType
+    description: Optional[str] = None
 
 class AssetUpdate(BaseModel):
     name: Optional[str] = None
     type: Optional[str] = None
+    description: Optional[str] = None
