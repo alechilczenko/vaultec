@@ -4,12 +4,12 @@ Copyright (C) 2026 Alejandro Chilczenko
 Licensed under GNU GPLv3 - See the LICENSE file for details
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from typing import List
 import database.models as models, schemas
 from database.db import get_db
-from database.crud import get_note_or_404
+from database.crud import note_service
 
 router = APIRouter(
     prefix="/notes",
@@ -18,7 +18,6 @@ router = APIRouter(
 
 @router.get("", response_model=List[schemas.NoteRead])
 def get_notes(db: Session = Depends(get_db)):
-
     return db.query(models.Note).all()
 
 @router.post("", response_model=schemas.NoteRead)
@@ -37,7 +36,7 @@ def create_note(note: schemas.NoteCreate, db: Session = Depends(get_db)):
 @router.patch("/{id}", response_model=schemas.NoteRead)
 def update_note(note_id: int, note_update: schemas.NoteUpdate, db: Session = Depends(get_db)):
 
-    db_note = get_note_or_404(db, note_id)
+    db_note = note_service.get_note_or_404(db, note_id)
 
     update_data = note_update.model_dump(exclude_unset=True)
     for key, value in update_data.items():
@@ -50,11 +49,9 @@ def update_note(note_id: int, note_update: schemas.NoteUpdate, db: Session = Dep
 
 @router.delete("/{id}", status_code=204)
 def delete_note(note_id: int, db: Session = Depends(get_db)):
-   
-    db_note = get_note_or_404(db, note_id)
+    db_note = note_service.get_note_or_404(db, note_id)
     # Delete and commit the transaction
     db.delete(db_note)
     db.commit()
-    
     # 204 No Content is the standard response for successful deletion
     return None

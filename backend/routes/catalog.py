@@ -39,8 +39,8 @@ def search_definitions(q: str, db: Session = Depends(get_db)):
     return results
 
 @router.patch("/{id}", response_model=schemas.VulnerabilityDefinitionRead)
-def update_vulnerability_definition(definition_id: int, data: schemas.VulnerabilityDefinitionUpdate, db: Session = Depends(get_db)):
-    defn = db.query(models.VulnerabilityDefinition).filter(models.VulnerabilityDefinition.id == definition_id).first()
+def update_vulnerability_definition(id: int, data: schemas.VulnerabilityDefinitionUpdate, db: Session = Depends(get_db)):
+    defn = db.query(models.VulnerabilityDefinition).filter(models.VulnerabilityDefinition.id == id).first()
     if not defn:
         raise HTTPException(status_code=404, detail="Definition not found")
 
@@ -101,9 +101,9 @@ def import_catalog_definitions(data: schemas.CatalogImport, db: Session = Depend
     }
 
 @router.delete("/{id}", status_code=204)
-def delete_vulnerability_definition(def_id: int, db: Session = Depends(get_db)):
+def delete_vulnerability_definition(id: int, db: Session = Depends(get_db)):
     db_def = db.query(models.VulnerabilityDefinition).filter(
-        models.VulnerabilityDefinition.id == def_id
+        models.VulnerabilityDefinition.id == id
     ).first()
     
     if not db_def:
