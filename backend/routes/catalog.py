@@ -16,6 +16,11 @@ router = APIRouter(
     tags=["Catalog (Vulnerability Definitions)"]
 )
 
+@router.get("/", response_model=list[schemas.VulnerabilityDefinitionRead])
+def get_vulnerability_catalog(db: Session = Depends(get_db)):
+    catalog = db.query(models.VulnerabilityDefinition).all()
+    return catalog
+
 @router.get("/{id}", response_model=schemas.VulnerabilityDefinitionRead)
 def get_catalog_entry(id: int, db: Session = Depends(get_db)):
     defn = db.query(models.VulnerabilityDefinition).filter(models.VulnerabilityDefinition.id == id).first()
