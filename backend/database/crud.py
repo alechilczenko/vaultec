@@ -6,7 +6,7 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 import database.models as models
 
 def get_or_create_definition(db: Session, def_id: int = None, title: str = None, **kwargs):
@@ -29,6 +29,43 @@ def get_or_create_definition(db: Session, def_id: int = None, title: str = None,
     db.commit()
     db.refresh(new_def)
     return new_def
+
+def get_or_create_finding(db: Session, def_id: int, asset_id: int, vulnerability_data: dict):
+    """
+    Checks if an open finding already exists for the given asset and definition.
+    If it exists, raises a 400 error. Otherwise, creates a new one.
+    """
+    # 1. Look for an existing open finding
+    existing_finding = db.query(models.Vulnerability).filter(
+        models.Vulnerability.definition_id == def_id,
+        models.Vulnerability.asset_id == asset_id
+    ).first()
+
+    if existing_finding:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Duplicate finding: Asset {asset_id} already has this vulnerability."
+        )
+
+    # 2. If no duplicate, create the new instance
+    new_finding = models.Vulnerability(
+        definition_id=def_id,
+        asset_id=asset_id,
+        **vulnerability_data
+    )
+    
+    try:
+        db.add(new_finding)
+        db.commit()
+        db.refresh(new_finding)
+        return new_finding
+    except Exception as e:
+        db.rollback()
+        print(f"ERROR: Database failure while creating finding. {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal database error during finding creation."
+        )
 
 def get_note_or_404(db: Session, note_id: int):
     """
