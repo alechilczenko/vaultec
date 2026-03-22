@@ -106,6 +106,49 @@ def update_vulnerability_instance(instance_id: int, data: schemas.VulnerabilityI
     db.refresh(db_v)
     return db_v
 
+@router.post("/import")
+def bulk_create_vulnerabilities(vulnerabilities: list[schemas.VulnerabilityCreate], db: Session = Depends(get_db)):
+    created_count = 0
+    total = len(vulnerabilities)
+
+    for vuln in vulnerabilities:
+        try:
+            
+            def_data = vuln.model_dump(exclude={
+                "asset_id", "status", "evidence_type", "http_request", 
+                "http_response", "general_evidence", "discovered_by", "notes"
+            })
+            
+            if "tags" in def_data and isinstance(def_data["tags"], list):
+                def_data["tags"] = ",".join(def_data["tags"])
+            
+            v_id = def_data.pop("definition_id", None)
+            v_title = def_data.pop("title")
+            
+            defn = get_or_create_definition(db, def_id=v_id, title=v_title, **def_data)
+
+            finding_info = {
+                "status": vuln.status,
+                "evidence_type": vuln.evidence_type,
+                "http_request": vuln.http_request,
+                "http_response": vuln.http_response,
+                "general_evidence": vuln.general_evidence,
+                "discovered_by": vuln.discovered_by,
+                "notes": vuln.notes
+            }
+
+            get_or_create_finding(db, defn.id, vuln.asset_id, finding_info)
+            created_count += 1
+
+        except Exception:
+            continue
+
+    return {
+        "imported": created_count,
+        "skipped": total - created_count,
+        "total": total
+    }
+
 @router.delete("/{id}", status_code=204)
 def delete_vulnerability_instance(instance_id: int, db: Session = Depends(get_db)):
 
