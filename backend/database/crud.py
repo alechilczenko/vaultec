@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from fastapi import HTTPException, status
 import database.models as models
+import schemas
 
 def get_or_create_definition(db: Session, def_id: int = None, title: str = None, **kwargs):
     # Get definition by ID
@@ -67,17 +68,63 @@ def get_or_create_finding(db: Session, def_id: int, asset_id: int, vulnerability
             detail="Internal database error during finding creation."
         )
 
+def process_vulnerability_entry(db: Session, vuln_data: schemas.VulnerabilityCreate):
+    """
+    Orchestrates the creation of a definition and its associated finding.
+    Logic shared between single and bulk imports.
+    """
+    # 1. Prepare Definition Data
+    def_data = vuln_data.model_dump(exclude={
+        "asset_id", "status", "evidence_type", "http_request", 
+        "http_response", "general_evidence", "discovered_by", "notes"
+    })
+
+    if "tags" in def_data and isinstance(def_data["tags"], list):
+        def_data["tags"] = ",".join(def_data["tags"])
+    
+    v_id = def_data.pop("definition_id", None)
+    v_title = def_data.pop("title")
+
+    # 2. Get/Create Definition
+    defn = get_or_create_definition(db, def_id=v_id, title=v_title, **def_data)
+
+    # 3. Prepare Finding Data
+    finding_info = {
+        "status": vuln_data.status,
+        "evidence_type": vuln_data.evidence_type,
+        "http_request": vuln_data.http_request,
+        "http_response": vuln_data.http_response,
+        "general_evidence": vuln_data.general_evidence,
+        "discovered_by": vuln_data.discovered_by,
+        "notes": vuln_data.notes,
+    }
+    # 4. Create Finding
+    return get_or_create_finding(db, defn.id, vuln_data.asset_id, finding_info)
+
+def get_finding_by_id(db: Session, finding_id: int):
+    return db.query(models.Vulnerability).filter(models.Vulnerability.id == finding_id).first()
+
+def get_vulnerabilities_joined(db: Session):
+    return db.query(
+        models.Vulnerability.created_at,
+        models.Asset.name.label("asset_name"),
+        models.VulnerabilityDefinition.title,
+        models.VulnerabilityDefinition.severity,
+        models.Vulnerability.status,
+        models.Vulnerability.id.label("instance_id")
+    ).join(models.Vulnerability, models.Asset.id == models.Vulnerability.asset_id)\
+     .join(models.VulnerabilityDefinition, models.Vulnerability.definition_id == models.VulnerabilityDefinition.id)\
+     .all()
+
 def get_note_or_404(db: Session, note_id: int):
     """
     Fetch a note from the database or raise a 404 error if it doesn't exist.
     """
     # Perform the database query
     db_note = db.query(models.Note).filter(models.Note.id == note_id).first()
-    
     if not db_note:
         # Stop execution and return the error to the client
         raise HTTPException(status_code=404, detail="Note not found")
-    
     return db_note
 
 def get_severity_stats(db: Session):
@@ -86,6 +133,5 @@ def get_severity_stats(db: Session):
         models.VulnerabilityDefinition.severity,
         func.count(models.VulnerabilityDefinition.id)
     ).group_by(models.VulnerabilityDefinition.severity).all()
-    
     # Transform list of tuples into a clean dictionary
     return {severity: count for severity, count in stats}
