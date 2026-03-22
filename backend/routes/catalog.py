@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from database.db import get_db
-import database.models as models
+from database.crud import catalog_service
 import schemas
 
 router = APIRouter(
@@ -18,97 +18,35 @@ router = APIRouter(
 
 @router.get("/", response_model=list[schemas.VulnerabilityDefinitionRead])
 def get_vulnerability_catalog(db: Session = Depends(get_db)):
-    catalog = db.query(models.VulnerabilityDefinition).all()
-    return catalog
-
-@router.get("/{id}", response_model=schemas.VulnerabilityDefinitionRead)
-def get_catalog_entry(id: int, db: Session = Depends(get_db)):
-    defn = db.query(models.VulnerabilityDefinition).filter(models.VulnerabilityDefinition.id == id).first()
-    
-    if not defn:
-        raise HTTPException(status_code=404, detail="Definition not found")
-    
-    return defn
+    return catalog_service.get_all_definitions(db)
 
 @router.get("/search", response_model=List[schemas.VulnerabilityDefinitionRead])
 def search_definitions(q: str, db: Session = Depends(get_db)):
+    return catalog_service.search_definitions(db,q)
 
-    results = db.query(models.VulnerabilityDefinition).filter(
-        models.VulnerabilityDefinition.title.ilike(f"%{q}%")
-    ).limit(10).all()
-    return results
+@router.get("/{id}", response_model=schemas.VulnerabilityDefinitionRead)
+def get_catalog_entry(id: int, db: Session = Depends(get_db)):
+    defn = catalog_service.get_definition_by_id(db, id)
+    if not defn:
+        raise HTTPException(status_code=404, detail="Definition not found")
+    return defn
 
 @router.patch("/{id}", response_model=schemas.VulnerabilityDefinitionRead)
 def update_vulnerability_definition(id: int, data: schemas.VulnerabilityDefinitionUpdate, db: Session = Depends(get_db)):
-    defn = db.query(models.VulnerabilityDefinition).filter(models.VulnerabilityDefinition.id == id).first()
+    defn = catalog_service.get_definition_by_id(db, id)
     if not defn:
         raise HTTPException(status_code=404, detail="Definition not found")
-
     update_data = data.model_dump(exclude_unset=True)
-    
-    if "tags" in update_data and isinstance(update_data["tags"], list):
-        update_data["tags"] = ",".join(update_data["tags"])
-
-    for key, value in update_data.items():
-        setattr(defn, key, value)
-
-    db.commit()
-    db.refresh(defn)
-    return defn
+    return catalog_service.update_definition(db, defn, update_data)
 
 @router.post("/import", status_code=201)
 def import_catalog_definitions(data: schemas.CatalogImport, db: Session = Depends(get_db)):
-    created_count = 0
-    updated_count = 0
-
-    for item in data.definitions:
-        existing = db.query(models.VulnerabilityDefinition).filter(
-            models.VulnerabilityDefinition.title == item.title
-        ).first()
-
-        tag_str = ",".join(item.tags) if item.tags else ""
-
-        if existing:
-            existing.severity = item.severity
-            existing.description = item.description
-            existing.recommendation = item.recommendation
-            existing.tags = tag_str
-            updated_count += 1
-        else:
-            new_defn = models.VulnerabilityDefinition(
-                title=item.title,
-                severity=item.severity,
-                description=item.description,
-                recommendation=item.recommendation,
-                tags=tag_str
-            )
-            db.add(new_defn)
-            created_count += 1
-
-    try:
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
-
-    return {
-        "status": "success",
-        "details": {
-            "created": created_count,
-            "updated": updated_count,
-            "total_processed": len(data.definitions)
-        }
-    }
+    return catalog_service.import_definitions(db, data)
 
 @router.delete("/{id}", status_code=204)
 def delete_vulnerability_definition(id: int, db: Session = Depends(get_db)):
-    db_def = db.query(models.VulnerabilityDefinition).filter(
-        models.VulnerabilityDefinition.id == id
-    ).first()
-    
-    if not db_def:
+    defn = catalog_service.get_definition_by_id(db, id)
+    if not defn:
         raise HTTPException(status_code=404, detail="Definition not found")
-    
-    db.delete(db_def)
-    db.commit()
+    catalog_service.delete_definition(db, defn)
     return None
