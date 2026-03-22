@@ -9,27 +9,39 @@ from sqlalchemy import func
 from fastapi import HTTPException, status
 import database.models as models
 import schemas
+from database.crud import catalog_service
 
-def get_or_create_definition(db: Session, def_id: int = None, title: str = None, **kwargs):
-    # Get definition by ID
-    if def_id:
-        existing_by_id = db.query(models.VulnerabilityDefinition).filter(models.VulnerabilityDefinition.id == def_id).first()
-        if existing_by_id:
-            return existing_by_id
-    
-    # If user selects title, filter
-    if title:
-        existing_by_title = db.query(models.VulnerabilityDefinition).filter(
-            models.VulnerabilityDefinition.title.ilike(title.strip())
-        ).first()
-        if existing_by_title:
-            return existing_by_title
-    
-    new_def = models.VulnerabilityDefinition(title=title, **kwargs)
-    db.add(new_def)
+def check_asset_exists(db: Session, asset_id: int):
+    # Validates if an asset exists in the database
+    db_asset = db.query(models.Asset).filter(models.Asset.id == asset_id).first()
+    if not db_asset:
+        raise HTTPException(status_code=404, detail=f"Asset with ID: {asset_id} not found")
+    return db_asset
+
+def update_finding(db: Session, db_obj: models.Vulnerability, update_data: dict):
+    # Applies updates to the finding instance and commits
+    for key, value in update_data.items():
+        setattr(db_obj, key, value)
     db.commit()
-    db.refresh(new_def)
-    return new_def
+    db.refresh(db_obj)
+    return db_obj
+
+def delete_finding(db: Session, db_obj: models.Vulnerability):
+    # Deletes the finding instance from the database
+    db.delete(db_obj)
+    db.commit()
+
+def get_severity_stats(db: Session):
+    # Query to group by severity and count occurrences
+    stats = db.query(
+        models.VulnerabilityDefinition.severity,
+        func.count(models.VulnerabilityDefinition.id)
+    ).group_by(models.VulnerabilityDefinition.severity).all()
+    # Transform list of tuples into a clean dictionary
+    return {severity: count for severity, count in stats}
+
+def get_finding_by_id(db: Session, finding_id: int):
+    return db.query(models.Vulnerability).filter(models.Vulnerability.id == finding_id).first()
 
 def get_or_create_finding(db: Session, def_id: int, asset_id: int, vulnerability_data: dict):
     """
@@ -45,16 +57,12 @@ def get_or_create_finding(db: Session, def_id: int, asset_id: int, vulnerability
     if existing_finding:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Duplicate finding: Asset {asset_id} already has this vulnerability."
-        )
-
+            detail=f"Duplicate finding: Asset {asset_id} already has this vulnerability.")
     # 2. If no duplicate, create the new instance
     new_finding = models.Vulnerability(
         definition_id=def_id,
         asset_id=asset_id,
-        **vulnerability_data
-    )
-    
+        **vulnerability_data)
     try:
         db.add(new_finding)
         db.commit()
@@ -65,8 +73,7 @@ def get_or_create_finding(db: Session, def_id: int, asset_id: int, vulnerability
         print(f"ERROR: Database failure while creating finding. {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal database error during finding creation."
-        )
+            detail="Internal database error during finding creation.")
 
 def process_vulnerability_entry(db: Session, vuln_data: schemas.VulnerabilityCreate):
     """
@@ -86,7 +93,7 @@ def process_vulnerability_entry(db: Session, vuln_data: schemas.VulnerabilityCre
     v_title = def_data.pop("title")
 
     # 2. Get/Create Definition
-    defn = get_or_create_definition(db, def_id=v_id, title=v_title, **def_data)
+    defn = catalog_service.get_or_create_definition(db, def_id=v_id, title=v_title, **def_data)
 
     # 3. Prepare Finding Data
     finding_info = {
@@ -101,9 +108,6 @@ def process_vulnerability_entry(db: Session, vuln_data: schemas.VulnerabilityCre
     # 4. Create Finding
     return get_or_create_finding(db, defn.id, vuln_data.asset_id, finding_info)
 
-def get_finding_by_id(db: Session, finding_id: int):
-    return db.query(models.Vulnerability).filter(models.Vulnerability.id == finding_id).first()
-
 def get_vulnerabilities_joined(db: Session):
     return db.query(
         models.Vulnerability.created_at,
@@ -113,25 +117,19 @@ def get_vulnerabilities_joined(db: Session):
         models.Vulnerability.status,
         models.Vulnerability.id.label("instance_id")
     ).join(models.Vulnerability, models.Asset.id == models.Vulnerability.asset_id)\
-     .join(models.VulnerabilityDefinition, models.Vulnerability.definition_id == models.VulnerabilityDefinition.id)\
-     .all()
+     .join(models.VulnerabilityDefinition, models.Vulnerability.definition_id == models.VulnerabilityDefinition.id).all()
 
-def get_note_or_404(db: Session, note_id: int):
-    """
-    Fetch a note from the database or raise a 404 error if it doesn't exist.
-    """
-    # Perform the database query
-    db_note = db.query(models.Note).filter(models.Note.id == note_id).first()
-    if not db_note:
-        # Stop execution and return the error to the client
-        raise HTTPException(status_code=404, detail="Note not found")
-    return db_note
-
-def get_severity_stats(db: Session):
-    # Query to group by severity and count occurrences
-    stats = db.query(
-        models.VulnerabilityDefinition.severity,
-        func.count(models.VulnerabilityDefinition.id)
-    ).group_by(models.VulnerabilityDefinition.severity).all()
-    # Transform list of tuples into a clean dictionary
-    return {severity: count for severity, count in stats}
+def bulk_process_vulnerabilities(db: Session, vulnerabilities: list[schemas.VulnerabilityCreate]):
+    created_count = 0
+    total = len(vulnerabilities)
+    for vuln in vulnerabilities:
+        try:
+            process_vulnerability_entry(db, vuln)
+            created_count += 1
+        except Exception as e:
+            db.rollback()
+            continue
+    return {
+        "imported": created_count, 
+        "skipped": total - created_count, 
+        "total": total }
