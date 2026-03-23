@@ -9,7 +9,7 @@ from sqlalchemy import func
 from fastapi import HTTPException, status
 import database.models as models
 import schemas
-from database.crud import catalog_service
+from database.crud import catalog_service, asset_service
 
 def update_finding(db: Session, db_obj: models.Vulnerability, update_data: dict):
     # Applies updates to the finding instance and commits
@@ -73,6 +73,8 @@ def process_vulnerability_entry(db: Session, vuln_data: schemas.VulnerabilityCre
     Orchestrates the creation of a definition and its associated finding.
     Logic shared between single and bulk imports.
     """
+    asset_service.check_asset_exists(db, vuln_data.asset_id)
+
     # 1. Prepare Definition Data
     def_data = vuln_data.model_dump(exclude={
         "asset_id", "status", "evidence_type", "http_request", 
