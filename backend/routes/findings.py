@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from database.db import get_db
-from database.crud import finding_service
+from database.crud import finding_service, asset_service
 import database.models as models
 import schemas
 
@@ -33,7 +33,7 @@ def get_finding_detail(id: int, db: Session = Depends(get_db)):
 
 @router.post("/create", response_model=schemas.VulnerabilityFullRead)
 def create_vulnerabilities(vulnerability: schemas.VulnerabilityCreate, db: Session = Depends(get_db)):
-    finding_service.check_asset_exists(db, vulnerability.asset_id)
+    asset_service.check_asset_exists(db, vulnerability.asset_id)
     return finding_service.process_vulnerability_entry(db, vulnerability)
 
 @router.patch("/{id}", response_model=schemas.VulnerabilityInstanceUpdate)
