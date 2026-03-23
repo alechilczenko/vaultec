@@ -7,9 +7,9 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from typing import List
-import database.models as models, schemas
 from database.db import get_db
 from database.crud import note_service
+import schemas
 
 router = APIRouter(
     prefix="/notes",
@@ -18,40 +18,20 @@ router = APIRouter(
 
 @router.get("", response_model=List[schemas.NoteRead])
 def get_notes(db: Session = Depends(get_db)):
-    return db.query(models.Note).all()
+    return note_service.get_all_notes(db)
 
 @router.post("", response_model=schemas.NoteRead)
 def create_note(note: schemas.NoteCreate, db: Session = Depends(get_db)):
-    # Initialize the new note object from the schema
-    db_note = models.Note(
-        title=note.title,
-        content=note.content
-    )
-    db.add(db_note)
-    db.commit()
-    db.refresh(db_note)
-    
-    return db_note
+    return note_service.create_note(db,note)
 
 @router.patch("/{id}", response_model=schemas.NoteRead)
-def update_note(note_id: int, note_update: schemas.NoteUpdate, db: Session = Depends(get_db)):
-
-    db_note = note_service.get_note_or_404(db, note_id)
-
+def update_note(id: int, note_update: schemas.NoteUpdate, db: Session = Depends(get_db)):
+    db_note = note_service.get_note_or_404(db,id)
     update_data = note_update.model_dump(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(db_note, key, value)
-
-    db.commit()
-    db.refresh(db_note)
-
-    return db_note
+    return note_service.update_note(db, db_note, update_data)
 
 @router.delete("/{id}", status_code=204)
-def delete_note(note_id: int, db: Session = Depends(get_db)):
-    db_note = note_service.get_note_or_404(db, note_id)
-    # Delete and commit the transaction
-    db.delete(db_note)
-    db.commit()
-    # 204 No Content is the standard response for successful deletion
+def delete_note(id: int, db: Session = Depends(get_db)):
+    db_note = note_service.get_note_or_404(db,id)
+    note_service.delete_note(db, db_note)
     return None
