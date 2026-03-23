@@ -21,8 +21,7 @@ def clear_all_findings(db: Session):
         print(f"ERROR: Could not clear findings. {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to clear findings. Please check server logs."
-        )
+            detail="Failed to clear findings. Please check server logs.")
 
 def clear_all_assets(db: Session):
     """
@@ -65,3 +64,18 @@ def clear_all_catalog(db: Session):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to clear catalog. Integrity constraints might be active.")
+
+def clear_all_notes(db: Session):
+    """
+    Deletes all notes from the database.
+    """
+    try:
+        db.query(models.Note).delete()
+        db.commit()
+        print("DEBUG: All notes have been cleared.")
+    except Exception as e:
+        db.rollback()
+        print(f"ERROR: Could not clear notes. {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to clear notes due to an internal error.")
