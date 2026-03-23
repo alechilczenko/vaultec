@@ -5,6 +5,7 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 """
 
 from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from database.db import engine
 from database.models import Base
@@ -22,6 +23,13 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],)
 
 app.include_router(auth.router) # Only unprotected endpoint
 
