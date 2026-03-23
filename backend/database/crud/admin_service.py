@@ -79,3 +79,22 @@ def clear_all_notes(db: Session):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to clear notes due to an internal error.")
+
+def clear_everything(db: Session):
+    """
+    Nuclear option: Deletes all data across all tables in the correct order 
+    to respect foreign key constraints.
+    """
+    try:
+        db.query(models.Vulnerability).delete()
+        db.query(models.Asset).delete()
+        db.query(models.VulnerabilityDefinition).delete()
+        db.query(models.Note).delete()
+        db.commit()
+        print("DEBUG: Nuclear reset successful. All tables cleared.")
+    except Exception as e:
+        db.rollback()
+        print(f"ERROR: Could not perform nuclear reset. {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to reset the database due to an internal error.")

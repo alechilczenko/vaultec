@@ -22,8 +22,10 @@ def clear_catalog(db: Session = Depends(get_db)):
 
 @router.delete("/notes", status_code=status.HTTP_204_NO_CONTENT)
 def clear_notes(db: Session = Depends(get_db)):
-    """
-    Deletes all notes from the database.
-    """
     admin_service.clear_all_notes(db)
+    return None
+
+@router.delete("/all", status_code=status.HTTP_204_NO_CONTENT)
+def clear_all_data(db: Session = Depends(get_db)):
+    admin_service.clear_everything(db)
     return None
