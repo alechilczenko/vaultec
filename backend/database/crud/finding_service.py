@@ -11,13 +11,6 @@ import database.models as models
 import schemas
 from database.crud import catalog_service
 
-def check_asset_exists(db: Session, asset_id: int):
-    # Validates if an asset exists in the database
-    db_asset = db.query(models.Asset).filter(models.Asset.id == asset_id).first()
-    if not db_asset:
-        raise HTTPException(status_code=404, detail=f"Asset with ID: {asset_id} not found")
-    return db_asset
-
 def update_finding(db: Session, db_obj: models.Vulnerability, update_data: dict):
     # Applies updates to the finding instance and commits
     for key, value in update_data.items():
