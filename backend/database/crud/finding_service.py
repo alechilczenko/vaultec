@@ -25,13 +25,11 @@ def delete_finding(db: Session, db_obj: models.Vulnerability):
     db.commit()
 
 def get_severity_stats(db: Session):
-    # Query to group by severity and count occurrences
-    stats = db.query(
-        models.VulnerabilityDefinition.severity,
-        func.count(models.VulnerabilityDefinition.id)
-    ).group_by(models.VulnerabilityDefinition.severity).all()
-    # Transform list of tuples into a clean dictionary
-    return {severity: count for severity, count in stats}
+    priority_order = ["critical", "high", "medium", "low", "informative"]
+    stats = db.query(models.VulnerabilityDefinition.severity,func.count(models.VulnerabilityDefinition.id)).group_by(models.VulnerabilityDefinition.severity).all()
+    stats_map = {severity: count for severity, count in stats}
+    ordered_stats = {sev: stats_map.get(sev, 0) for sev in priority_order}
+    return ordered_stats
 
 def get_finding_by_id(db: Session, finding_id: int):
     return db.query(models.Vulnerability).filter(models.Vulnerability.id == finding_id).first()
