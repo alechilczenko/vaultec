@@ -5,6 +5,7 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 """
 
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import func
 from fastapi import HTTPException, status
 import database.models as models
@@ -26,9 +27,23 @@ def delete_finding(db: Session, db_obj: models.Vulnerability):
 
 def get_severity_stats(db: Session):
     priority_order = ["critical", "high", "medium", "low", "informative"]
-    stats = db.query(models.VulnerabilityDefinition.severity,func.count(models.VulnerabilityDefinition.id)).group_by(models.VulnerabilityDefinition.severity).all()
+
+    # Query instances (Vulnerability) joined with their Definitions
+    stats = db.query(
+        models.VulnerabilityDefinition.severity,
+        func.count(models.Vulnerability.id)
+    ).join(
+        models.Vulnerability, 
+        models.Vulnerability.definition_id == models.VulnerabilityDefinition.id
+    ).filter(
+        models.Vulnerability.status == "open" # Only count active findings
+    ).group_by(
+        models.VulnerabilityDefinition.severity
+    ).all()
+
     stats_map = {severity: count for severity, count in stats}
     ordered_stats = {sev: stats_map.get(sev, 0) for sev in priority_order}
+
     return ordered_stats
 
 def get_finding_by_id(db: Session, finding_id: int):
@@ -59,6 +74,7 @@ def get_or_create_finding(db: Session, def_id: int, asset_id: int, vulnerability
         db.commit()
         db.refresh(new_finding)
         return new_finding
+    
     except Exception as e:
         db.rollback()
         print(f"ERROR: Database failure while creating finding. {str(e)}")
@@ -119,7 +135,8 @@ def bulk_process_vulnerabilities(db: Session, vulnerabilities: list[schemas.Vuln
         try:
             process_vulnerability_entry(db, vuln)
             created_count += 1
-        except Exception as e:
+        except (HTTPException, SQLAlchemyError) as e:
+            # Rollback only for expected business logic or DB operational errors
             db.rollback()
             continue
     return {
