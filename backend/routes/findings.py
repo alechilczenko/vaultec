@@ -36,7 +36,7 @@ def create_vulnerabilities(vulnerability: schemas.VulnerabilityCreate, db: Sessi
     asset_service.check_asset_exists(db, vulnerability.asset_id)
     return finding_service.process_vulnerability_entry(db, vulnerability)
 
-@router.patch("/{id}", response_model=schemas.VulnerabilityInstanceUpdate)
+@router.patch("/{id}", response_model=schemas.VulnerabilityFullRead)
 def update_vulnerability_instance(id: int, data: schemas.VulnerabilityInstanceUpdate, db: Session = Depends(get_db)):
     db_v = finding_service.get_finding_by_id(db, id)
     if not db_v:
