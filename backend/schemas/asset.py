@@ -28,5 +28,5 @@ class AssetCreate(BaseModel):
 
 class AssetUpdate(BaseModel):
     name: Optional[str] = None
-    type: Optional[str] = None
+    type: Optional[AssetType] = None
     description: Optional[str] = None
