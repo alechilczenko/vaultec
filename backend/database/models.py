@@ -4,7 +4,7 @@ Copyright (C) 2026 Alejandro Chilczenko
 Licensed under GNU GPLv3 - See the LICENSE file for details
 """
 
-from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String, ForeignKey, Text, func
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, ForeignKey, Text, func
 from sqlalchemy.orm import relationship
 from database.db import Base
 
@@ -45,8 +45,8 @@ class Vulnerability(Base):
     discovered_by = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     notes = Column(Text, nullable=True)
-    asset_id = Column(Integer, ForeignKey("assets.id"))
-    definition_id = Column(Integer, ForeignKey("vulnerability_definitions.id"))
+    asset_id = Column(Integer, ForeignKey("assets.id"), nullable=False)
+    definition_id = Column(Integer, ForeignKey("vulnerability_definitions.id"), nullable=False)
     definition = relationship("VulnerabilityDefinition", back_populates="instances")
     asset = relationship("Asset")
 
