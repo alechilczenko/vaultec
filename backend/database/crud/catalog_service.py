@@ -4,6 +4,7 @@ Copyright (C) 2026 Alejandro Chilczenko
 Licensed under GNU GPLv3 - See the LICENSE file for details
 """
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 import database.models as models
@@ -13,7 +14,13 @@ def get_all_definitions(db: Session):
     return db.query(models.VulnerabilityDefinition).all()
 
 def get_definition_by_id(db: Session, def_id: int):
-    return db.query(models.VulnerabilityDefinition).filter(models.VulnerabilityDefinition.id == def_id).first()
+    definition = db.query(models.VulnerabilityDefinition).filter(models.VulnerabilityDefinition.id == def_id).first()
+    if not definition:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Catalog Error: Vulnerability definition with ID {def_id} not found."
+        )
+    return definition
 
 def search_definitions(db: Session, query: str):
     return db.query(models.VulnerabilityDefinition).filter(models.VulnerabilityDefinition.title.ilike(f"%{query}%")).limit(10).all()
@@ -50,7 +57,7 @@ def update_definition(db: Session, db_obj: models.VulnerabilityDefinition, updat
         if existing:
             raise HTTPException(
                 status_code=400, 
-                detail=f"A definition with title '{new_title}' already exists."
+                detail=f"Catalog Conflict: The title '{new_title}' is already in use by definition ID {existing.id}."
             )
         update_data["title"] = new_title
     # Process tags
@@ -111,5 +118,26 @@ def import_definitions(db: Session, data: schemas.CatalogImport):
     }
 
 def delete_definition(db: Session, db_obj: models.VulnerabilityDefinition):
-    db.delete(db_obj)
-    db.commit()
+    """
+    Deletes a vulnerability definition and handles dependency conflicts.
+    """
+    title = db_obj.title
+    try:
+        db.delete(db_obj)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Catalog Dependency Error: Cannot delete '{title}'. "
+                "There are active findings using this definition. "
+                "Remove those findings first."
+            )
+        )
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Database Error: An unexpected error occurred while deleting the definition."
+        )

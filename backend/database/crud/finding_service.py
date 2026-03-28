@@ -13,18 +13,41 @@ import schemas
 from database.crud import catalog_service, asset_service
 
 def update_finding(db: Session, db_obj: models.Vulnerability, update_data: dict):
-    # Applies updates to the finding instance and commits
-    for key, value in update_data.items():
-        setattr(db_obj, key, value)
-    db.commit()
-    db.refresh(db_obj)
-    return db_obj
+    """
+    Applies updates to a finding instance with robust error handling.
+    """
+    finding_id = db_obj.id
+    try:
+        for key, value in update_data.items():
+            setattr(db_obj, key, value)
+        
+        db.commit()
+        db.refresh(db_obj)
+        return db_obj
+    except Exception as e:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Update Error: Could not update finding ID {finding_id}. Check if the data format is correct."
+        )
 
 def delete_finding(db: Session, db_obj: models.Vulnerability):
-    # Deletes the finding instance from the database
-    db.delete(db_obj)
-    db.commit()
-
+    """
+    Deletes a specific finding instance with error handling.
+    """
+    finding_id = db_obj.id
+    try:
+        db.delete(db_obj)
+        db.commit()
+        return True 
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database Error: Could not delete finding ID {finding_id}. Transaction rolled back."
+        )
+    
 def get_severity_stats(db: Session):
     priority_order = ["critical", "high", "medium", "low", "informative"]
 
@@ -47,7 +70,14 @@ def get_severity_stats(db: Session):
     return ordered_stats
 
 def get_finding_by_id(db: Session, finding_id: int):
-    return db.query(models.Vulnerability).filter(models.Vulnerability.id == finding_id).first()
+
+    finding = db.query(models.Vulnerability).filter(models.Vulnerability.id == finding_id).first()
+    if not finding:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Finding Error: Vulnerability instance with ID {finding_id} not found."
+        )
+    return finding
 
 def get_or_create_finding(db: Session, def_id: int, asset_id: int, vulnerability_data: dict):
     """
@@ -61,9 +91,15 @@ def get_or_create_finding(db: Session, def_id: int, asset_id: int, vulnerability
     ).first()
 
     if existing_finding:
+
+        asset_name = existing_finding.asset.name if existing_finding.asset else f"ID {asset_id}"
+        vuln_title = existing_finding.definition.title if existing_finding.definition else f"Def ID {def_id}"
+    
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Duplicate finding: Asset {asset_id} already has this vulnerability.")
+            detail=f"Duplicate Finding: The asset '{asset_name}' already has an active record "
+                f"for '{vuln_title}'. Duplicate prevented.")
+    
     # 2. If no duplicate, create the new instance
     new_finding = models.Vulnerability(
         definition_id=def_id,
@@ -77,10 +113,9 @@ def get_or_create_finding(db: Session, def_id: int, asset_id: int, vulnerability
     
     except Exception as e:
         db.rollback()
-        print(f"ERROR: Database failure while creating finding. {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal database error during finding creation.")
+            detail="Database Error: Failed to persist the new finding. Transaction rolled back.")
 
 def process_vulnerability_entry(db: Session, vuln_data: schemas.VulnerabilityCreate):
     """
