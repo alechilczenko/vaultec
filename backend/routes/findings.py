@@ -4,9 +4,9 @@ Copyright (C) 2026 Alejandro Chilczenko
 Licensed under GNU GPLv3 - See the LICENSE file for details
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Annotated
 from database.db import get_db
 from database.crud import finding_service, asset_service
 import schemas
@@ -21,8 +21,8 @@ def get_vulnerability_stats(db: Session = Depends(get_db)):
     return finding_service.get_severity_stats(db)
 
 @router.get("/by-asset", response_model=List[schemas.VulnerabilityByAsset])
-def get_vulnerabilities_by_asset(db: Session = Depends(get_db)):
-    return finding_service.get_vulnerabilities_joined(db)
+def get_vulnerabilities_by_asset(skip: Annotated[int, Query(ge=0, description="Records to skip")] = 0, limit: Annotated[int, Query(ge=1, le=100, description="Records per page")] = 50,db: Session = Depends(get_db)):
+    return finding_service.get_vulnerabilities_joined(db, skip, limit)
 
 @router.get("/{id}", response_model=schemas.VulnerabilityFullRead)
 def get_finding_detail(id: SafeIntID, db: Session = Depends(get_db)):

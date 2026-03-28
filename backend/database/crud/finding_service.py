@@ -152,7 +152,7 @@ def process_vulnerability_entry(db: Session, vuln_data: schemas.VulnerabilityCre
     # 4. Create Finding
     return get_or_create_finding(db, defn.id, vuln_data.asset_id, finding_info)
 
-def get_vulnerabilities_joined(db: Session):
+def get_vulnerabilities_joined(db: Session, skip: int = 0, limit: int = 100):
     return db.query(
         models.Vulnerability.created_at,
         models.Asset.name.label("asset_name"),
@@ -161,7 +161,7 @@ def get_vulnerabilities_joined(db: Session):
         models.Vulnerability.status,
         models.Vulnerability.id.label("instance_id")
     ).join(models.Vulnerability, models.Asset.id == models.Vulnerability.asset_id)\
-     .join(models.VulnerabilityDefinition, models.Vulnerability.definition_id == models.VulnerabilityDefinition.id).all()
+     .join(models.VulnerabilityDefinition, models.Vulnerability.definition_id == models.VulnerabilityDefinition.id).offset(skip).limit(limit).all()
 
 def bulk_process_vulnerabilities(db: Session, vulnerabilities: schemas.VulnerabilityBulkImport):
     created_count = 0
