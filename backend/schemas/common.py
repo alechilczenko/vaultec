@@ -1,6 +1,6 @@
 from typing import Annotated
 from pydantic import Field
 
-SQLITE_INT64_MAX = 9_223_372_036_854_775_807
+MAX_ID_VALUE = 10_000
 
-SafeIntID = Annotated[int, Field(ge=1, le=SQLITE_INT64_MAX)]
+SafeIntID = Annotated[int, Field(ge=1, le=MAX_ID_VALUE)]
