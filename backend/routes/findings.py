@@ -26,10 +26,7 @@ def get_vulnerabilities_by_asset(db: Session = Depends(get_db)):
 
 @router.get("/{id}", response_model=schemas.VulnerabilityFullRead)
 def get_finding_detail(id: int, db: Session = Depends(get_db)):
-    finding = finding_service.get_finding_by_id(db, id)
-    if not finding:
-        raise HTTPException(status_code=404, detail="Finding not found")
-    return finding
+    return finding_service.get_finding_by_id(db, id)
 
 @router.post("/create", response_model=schemas.VulnerabilityFullRead)
 def create_vulnerabilities(vulnerability: schemas.VulnerabilityCreate, db: Session = Depends(get_db)):
@@ -39,8 +36,6 @@ def create_vulnerabilities(vulnerability: schemas.VulnerabilityCreate, db: Sessi
 @router.patch("/{id}", response_model=schemas.VulnerabilityFullRead)
 def update_vulnerability_instance(id: int, data: schemas.VulnerabilityInstanceUpdate, db: Session = Depends(get_db)):
     db_v = finding_service.get_finding_by_id(db, id)
-    if not db_v:
-        raise HTTPException(status_code=404, detail="Instance not found")
     update_data = data.model_dump(exclude_unset=True)
     return finding_service.update_finding(db, db_v, update_data)
 
@@ -51,7 +46,5 @@ def bulk_create_vulnerabilities(vulnerabilities: list[schemas.VulnerabilityCreat
 @router.delete("/{id}", status_code=204)
 def delete_vulnerability_instance(id: int, db: Session = Depends(get_db)):
     db_v = finding_service.get_finding_by_id(db, id)
-    if not db_v:
-        raise HTTPException(status_code=404, detail="Instance not found")
     finding_service.delete_finding(db, db_v)
     return None

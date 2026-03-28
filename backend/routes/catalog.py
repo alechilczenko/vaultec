@@ -4,7 +4,7 @@ Copyright (C) 2026 Alejandro Chilczenko
 Licensed under GNU GPLv3 - See the LICENSE file for details
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from typing import List
 from database.db import get_db
@@ -26,16 +26,11 @@ def search_definitions(q: str, db: Session = Depends(get_db)):
 
 @router.get("/{id}", response_model=schemas.VulnerabilityDefinitionRead)
 def get_catalog_entry(id: int, db: Session = Depends(get_db)):
-    defn = catalog_service.get_definition_by_id(db, id)
-    if not defn:
-        raise HTTPException(status_code=404, detail="Definition not found")
-    return defn
+    return catalog_service.get_definition_by_id(db, id)
 
 @router.patch("/{id}", response_model=schemas.VulnerabilityDefinitionRead)
 def update_vulnerability_definition(id: int, data: schemas.VulnerabilityDefinitionUpdate, db: Session = Depends(get_db)):
     defn = catalog_service.get_definition_by_id(db, id)
-    if not defn:
-        raise HTTPException(status_code=404, detail="Definition not found")
     update_data = data.model_dump(exclude_unset=True)
     return catalog_service.update_definition(db, defn, update_data)
 
@@ -46,7 +41,5 @@ def import_catalog_definitions(data: schemas.CatalogImport, db: Session = Depend
 @router.delete("/{id}", status_code=204)
 def delete_vulnerability_definition(id: int, db: Session = Depends(get_db)):
     defn = catalog_service.get_definition_by_id(db, id)
-    if not defn:
-        raise HTTPException(status_code=404, detail="Definition not found")
     catalog_service.delete_definition(db, defn)
     return None
