@@ -10,5 +10,6 @@ from .vulnerability import (
     VulnerabilityInstanceUpdate,
     VulnerabilityByAsset,
     VulnerabilityFullRead,
-    CatalogImport
+    CatalogImport,
+    VulnerabilityBulkImport
 )

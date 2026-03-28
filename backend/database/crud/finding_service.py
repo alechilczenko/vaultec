@@ -163,7 +163,7 @@ def get_vulnerabilities_joined(db: Session):
     ).join(models.Vulnerability, models.Asset.id == models.Vulnerability.asset_id)\
      .join(models.VulnerabilityDefinition, models.Vulnerability.definition_id == models.VulnerabilityDefinition.id).all()
 
-def bulk_process_vulnerabilities(db: Session, vulnerabilities: list[schemas.VulnerabilityCreate]):
+def bulk_process_vulnerabilities(db: Session, vulnerabilities: schemas.VulnerabilityBulkImport):
     created_count = 0
     total = len(vulnerabilities)
     for vuln in vulnerabilities:
