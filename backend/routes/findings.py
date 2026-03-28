@@ -4,13 +4,13 @@ Copyright (C) 2026 Alejandro Chilczenko
 Licensed under GNU GPLv3 - See the LICENSE file for details
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from typing import List
 from database.db import get_db
 from database.crud import finding_service, asset_service
-import database.models as models
 import schemas
+from schemas.common import SafeIntID
 
 router = APIRouter(
     prefix="/findings",
@@ -25,7 +25,7 @@ def get_vulnerabilities_by_asset(db: Session = Depends(get_db)):
     return finding_service.get_vulnerabilities_joined(db)
 
 @router.get("/{id}", response_model=schemas.VulnerabilityFullRead)
-def get_finding_detail(id: int, db: Session = Depends(get_db)):
+def get_finding_detail(id: SafeIntID, db: Session = Depends(get_db)):
     return finding_service.get_finding_by_id(db, id)
 
 @router.post("/create", response_model=schemas.VulnerabilityFullRead)
@@ -34,7 +34,7 @@ def create_vulnerabilities(vulnerability: schemas.VulnerabilityCreate, db: Sessi
     return finding_service.process_vulnerability_entry(db, vulnerability)
 
 @router.patch("/{id}", response_model=schemas.VulnerabilityFullRead)
-def update_vulnerability_instance(id: int, data: schemas.VulnerabilityInstanceUpdate, db: Session = Depends(get_db)):
+def update_vulnerability_instance(id: SafeIntID, data: schemas.VulnerabilityInstanceUpdate, db: Session = Depends(get_db)):
     db_v = finding_service.get_finding_by_id(db, id)
     update_data = data.model_dump(exclude_unset=True)
     return finding_service.update_finding(db, db_v, update_data)
@@ -44,7 +44,7 @@ def bulk_create_vulnerabilities(vulnerabilities: list[schemas.VulnerabilityCreat
     return finding_service.bulk_process_vulnerabilities(db, vulnerabilities)
 
 @router.delete("/{id}", status_code=204)
-def delete_vulnerability_instance(id: int, db: Session = Depends(get_db)):
+def delete_vulnerability_instance(id: SafeIntID, db: Session = Depends(get_db)):
     db_v = finding_service.get_finding_by_id(db, id)
     finding_service.delete_finding(db, db_v)
     return None

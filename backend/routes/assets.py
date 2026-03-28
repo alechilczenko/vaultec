@@ -10,6 +10,7 @@ from database.db import get_db
 from typing import List
 from database.crud import asset_service
 import schemas.asset as schemas
+from schemas.common import SafeIntID
 
 router = APIRouter(
     prefix="/assets",
@@ -24,7 +25,7 @@ def create_asset(asset: schemas.AssetCreate, db: Session = Depends(get_db)):
     return asset_service.create_asset(db,asset)
 
 @router.patch("/{id}", response_model=schemas.AssetRead)
-def update_asset(id: int, asset_data: schemas.AssetUpdate, db: Session = Depends(get_db)):
+def update_asset(id: SafeIntID, asset_data: schemas.AssetUpdate, db: Session = Depends(get_db)):
     db_asset = asset_service.check_asset_exists(db, id)
     update_dict = asset_data.model_dump(exclude_unset=True)
     return asset_service.update_asset(db, db_asset, update_dict)
@@ -34,7 +35,7 @@ def import_assets(assets: List[schemas.AssetCreate], db: Session = Depends(get_d
     return asset_service.import_assets(db, assets)
 
 @router.delete("/{id}", status_code=204)
-def delete_asset(id: int, db: Session = Depends(get_db)):
+def delete_asset(id: SafeIntID, db: Session = Depends(get_db)):
     db_asset = asset_service.check_asset_exists(db, id)
     asset_service.delete_asset(db, db_asset)
     return None

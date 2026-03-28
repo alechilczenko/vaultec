@@ -6,6 +6,7 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional
+from .common import SafeIntID
 
 class NoteCreate(BaseModel):
     # Field(...) means it is required
@@ -15,7 +16,7 @@ class NoteCreate(BaseModel):
     content: str = Field(..., min_length=1, strip_whitespace=True)
 
 class NoteRead(BaseModel):
-    id: int
+    id: SafeIntID
     title: str
     content: str
 

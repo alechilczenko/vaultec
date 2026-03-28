@@ -8,6 +8,7 @@ from typing import Optional
 from pydantic import BaseModel, ConfigDict, Field
 from enum import Enum
 from datetime import datetime
+from .common import SafeIntID
 
 class AssetType(str, Enum):
     IP = "IP"
@@ -15,7 +16,7 @@ class AssetType(str, Enum):
     FQDN = "FQDN"
 
 class AssetRead(BaseModel):
-    id: int
+    id: SafeIntID
     name: str
     type: str
     created_at: datetime
