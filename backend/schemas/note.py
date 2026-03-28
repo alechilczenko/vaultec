@@ -9,23 +9,16 @@ from typing import Optional
 from .common import SafeIntID
 
 class NoteCreate(BaseModel):
-    # Field(...) means it is required
-    # min_length=1 prevents empty strings
-    # strip_whitespace=True prevents strings with only spaces
-    title: str = Field(..., min_length=1, strip_whitespace=True)
-    content: str = Field(..., min_length=1, strip_whitespace=True)
+    title: str = Field(..., min_length=1, max_length=100, strip_whitespace=True)
+    content: str = Field(..., min_length=1, max_length=5000, strip_whitespace=True)
 
 class NoteRead(BaseModel):
     id: SafeIntID
     title: str
     content: str
-
     model_config = ConfigDict(from_attributes=True)
 
 class NoteUpdate(BaseModel):
-    # Optional[] allows the field to be missing in the request
-    # Field(None, ...) sets the default to None if not provided
-    title: Optional[str] = Field(None, min_length=1, strip_whitespace=True)
-    content: Optional[str] = Field(None, min_length=1, strip_whitespace=True)
-
+    title: Optional[str] = Field(None, min_length=1, max_length=100, strip_whitespace=True)
+    content: Optional[str] = Field(None, min_length=1, max_length=5000, strip_whitespace=True)
     model_config = ConfigDict(from_attributes=True)

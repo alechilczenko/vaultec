@@ -23,11 +23,11 @@ class AssetRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 class AssetCreate(BaseModel):
-    name: str = Field(..., examples=["192.168.1.10", "https://api.example.com"])
+    name: str = Field(..., max_length=255, examples=["192.168.1.10", "https://api.example.com"])
     type: AssetType
-    description: Optional[str] = None
+    description: Optional[str] = Field(None, max_length=5000)
 
 class AssetUpdate(BaseModel):
-    name: Optional[str] = None
+    name: Optional[str] = Field(None, max_length=255)
     type: Optional[AssetType] = None
-    description: Optional[str] = None
+    description: Optional[str] = Field(None, max_length=5000)
