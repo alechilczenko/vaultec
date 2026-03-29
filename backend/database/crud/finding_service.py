@@ -129,10 +129,7 @@ def process_vulnerability_entry(db: Session, vuln_data: schemas.VulnerabilityCre
         "asset_id", "status", "evidence_type", "http_request", 
         "http_response", "general_evidence", "discovered_by", "notes"
     })
-
-    if "tags" in def_data and isinstance(def_data["tags"], list):
-        def_data["tags"] = ",".join(def_data["tags"])
-    
+ 
     v_id = def_data.pop("definition_id", None)
     v_title = def_data.pop("title")
 

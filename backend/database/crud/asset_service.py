@@ -65,10 +65,10 @@ def import_assets(db: Session, assets: schemas.AssetBulkImport):
     added_count = 0
     skipped_count = 0
     
-    existing_names = {a.name for a in db.query(models.Asset.name).all()}
+    existing_names = {row[0] for row in db.query(models.Asset.name).all()}
     
     new_assets_objs = []
-    for asset_data in assets:
+    for asset_data in assets.assets:
         if asset_data.name not in existing_names:
             new_assets_objs.append(models.Asset(name=asset_data.name,type=asset_data.type,description=asset_data.description))
             existing_names.add(asset_data.name)
@@ -77,9 +77,12 @@ def import_assets(db: Session, assets: schemas.AssetBulkImport):
             skipped_count += 1
             
     if new_assets_objs:
-        db.add_all(new_assets_objs)
-        db.commit()
-        
+        try:
+            db.add_all(new_assets_objs)
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     return {
         "message": "Import completed",
         "added": added_count,
