@@ -6,7 +6,7 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-from typing import List, Annotated
+from typing import List, Annotated, Optional
 from database.db import get_db
 from database.crud import finding_service, asset_service
 import schemas
@@ -20,9 +20,9 @@ router = APIRouter(
 def get_vulnerability_stats(db: Session = Depends(get_db)):
     return finding_service.get_severity_stats(db)
 
-@router.get("/by-asset", response_model=List[schemas.VulnerabilityByAsset])
-def get_vulnerabilities_by_asset(skip: Annotated[int, Query(ge=0, description="Records to skip")] = 0, limit: Annotated[int, Query(ge=1, le=100, description="Records per page")] = 50,db: Session = Depends(get_db)):
-    return finding_service.get_vulnerabilities_joined(db, skip, limit)
+@router.get("/by-asset", response_model=schemas.VulnerabilityJoinedRead)
+def get_vulnerabilities_by_asset(skip: Annotated[int, Query(ge=0, description="Records to skip")] = 0, limit: Annotated[int, Query(ge=1, le=100, description="Records per page")] = 50, q: Annotated[Optional[str], Query(min_length=1, max_length=100)] = None, db: Session = Depends(get_db)):
+    return {"findings": finding_service.get_vulnerabilities_joined(db, skip, limit, q)}
 
 @router.get("/{id}", response_model=schemas.VulnerabilityFullRead)
 def get_finding_detail(id: SafeIntID, db: Session = Depends(get_db)):
@@ -40,8 +40,8 @@ def update_vulnerability_instance(id: SafeIntID, data: schemas.VulnerabilityInst
     return finding_service.update_finding(db, db_v, update_data)
 
 @router.post("/import")
-def bulk_create_vulnerabilities(vulnerabilities: list[schemas.VulnerabilityCreate], db: Session = Depends(get_db)):
-    return finding_service.bulk_process_vulnerabilities(db, vulnerabilities)
+def bulk_create_vulnerabilities(data: schemas.VulnerabilityBulkImport, db: Session = Depends(get_db)):
+    return finding_service.bulk_process_vulnerabilities(db, data.vulnerabilities)
 
 @router.delete("/{id}", status_code=204)
 def delete_vulnerability_instance(id: SafeIntID, db: Session = Depends(get_db)):

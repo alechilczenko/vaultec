@@ -58,7 +58,7 @@ def update_asset(db: Session, db_asset: models.Asset, update_data: dict):
     db.refresh(db_asset)
     return db_asset
 
-def import_assets(db: Session, assets: List[schemas.AssetCreate]):
+def import_assets(db: Session, assets: schemas.AssetBulkImport):
     """
     Bulk imports assets, skipping those with existing names.
     """

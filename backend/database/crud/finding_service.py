@@ -6,7 +6,7 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from fastapi import HTTPException, status
 import database.models as models
 import schemas
@@ -152,8 +152,8 @@ def process_vulnerability_entry(db: Session, vuln_data: schemas.VulnerabilityCre
     # 4. Create Finding
     return get_or_create_finding(db, defn.id, vuln_data.asset_id, finding_info)
 
-def get_vulnerabilities_joined(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(
+def get_vulnerabilities_joined(db: Session, skip: int = 0, limit: int = 100, search_query: str = None):
+    query = db.query(
         models.Vulnerability.created_at,
         models.Asset.name.label("asset_name"),
         models.VulnerabilityDefinition.title,
@@ -161,7 +161,17 @@ def get_vulnerabilities_joined(db: Session, skip: int = 0, limit: int = 100):
         models.Vulnerability.status,
         models.Vulnerability.id.label("instance_id")
     ).join(models.Vulnerability, models.Asset.id == models.Vulnerability.asset_id)\
-     .join(models.VulnerabilityDefinition, models.Vulnerability.definition_id == models.VulnerabilityDefinition.id).offset(skip).limit(limit).all()
+     .join(models.VulnerabilityDefinition, models.Vulnerability.definition_id == models.VulnerabilityDefinition.id)
+    
+    if search_query:
+        query = query.filter(
+            or_(
+                models.VulnerabilityDefinition.title.ilike(f"%{search_query}%"),
+                models.Asset.name.ilike(f"%{search_query}%")
+            )
+        )
+    return query.offset(skip).limit(limit).all()
+    
 
 def bulk_process_vulnerabilities(db: Session, vulnerabilities: schemas.VulnerabilityBulkImport):
     created_count = 0

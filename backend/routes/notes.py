@@ -17,9 +17,9 @@ router = APIRouter(
     tags=["Notes"]
 )
 
-@router.get("", response_model=List[schemas.NoteRead])
+@router.get("", response_model=schemas.NoteListRead)
 def get_notes(db: Session = Depends(get_db)):
-    return note_service.get_all_notes(db)
+    return {"notes": note_service.get_all_notes(db)}
 
 @router.post("", response_model=schemas.NoteRead)
 def create_note(note: schemas.NoteCreate, db: Session = Depends(get_db)):

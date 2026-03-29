@@ -16,9 +16,9 @@ router = APIRouter(
     prefix="/assets",
     tags=["Assets"]
 )
-@router.get("", response_model=List[schemas.AssetRead])
+@router.get("", response_model=schemas.AssetListRead)
 def list_assets(db: Session = Depends(get_db)):
-    return asset_service.get_all_assets(db)
+    return {"assets": asset_service.get_all_assets(db)}
 
 @router.post("", response_model=schemas.AssetRead)
 def create_asset(asset: schemas.AssetCreate, db: Session = Depends(get_db)):
@@ -31,7 +31,7 @@ def update_asset(id: SafeIntID, asset_data: schemas.AssetUpdate, db: Session = D
     return asset_service.update_asset(db, db_asset, update_dict)
 
 @router.post("/import", response_model=dict)
-def import_assets(assets: List[schemas.AssetCreate], db: Session = Depends(get_db)):
+def import_assets(assets: schemas.AssetBulkImport, db: Session = Depends(get_db)):
     return asset_service.import_assets(db, assets)
 
 @router.delete("/{id}", status_code=204)

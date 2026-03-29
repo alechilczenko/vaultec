@@ -17,13 +17,13 @@ router = APIRouter(
     tags=["Catalog (Vulnerability Definitions)"]
 )
 
-@router.get("/", response_model=list[schemas.VulnerabilityDefinitionRead])
+@router.get("/", response_model=schemas.CatalogRead)
 def get_vulnerability_catalog(db: Session = Depends(get_db)):
-    return catalog_service.get_all_definitions(db)
+    return {"definitions": catalog_service.get_all_definitions(db)}
 
-@router.get("/search", response_model=List[schemas.VulnerabilityDefinitionRead])
+@router.get("/search", response_model=schemas.CatalogRead)
 def search_definitions(q: str = Query(..., min_length=2, max_length=50), db: Session = Depends(get_db)):
-    return catalog_service.search_definitions(db,q)
+    return {"definitions": catalog_service.search_definitions(db,q)}
 
 @router.get("/{id}", response_model=schemas.VulnerabilityDefinitionRead)
 def get_catalog_entry(id: SafeIntID, db: Session = Depends(get_db)):
