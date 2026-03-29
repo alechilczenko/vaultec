@@ -11,6 +11,7 @@ from .vulnerability import (
     VulnerabilityByAsset,
     VulnerabilityFullRead,
     CatalogImport,
+    CatalogEntryCreate,
     VulnerabilityBulkImport,
     CatalogRead,
     VulnerabilityJoinedRead
