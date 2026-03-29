@@ -33,15 +33,15 @@ def create_vulnerabilities(vulnerability: schemas.VulnerabilityCreate, db: Sessi
     asset_service.check_asset_exists(db, vulnerability.asset_id)
     return finding_service.process_vulnerability_entry(db, vulnerability)
 
+@router.post("/import")
+def bulk_create_vulnerabilities(data: schemas.VulnerabilityBulkImport, db: Session = Depends(get_db)):
+    return finding_service.bulk_process_vulnerabilities(db, data.vulnerabilities)
+
 @router.patch("/{id}", response_model=schemas.VulnerabilityFullRead)
 def update_vulnerability_instance(id: SafeIntID, data: schemas.VulnerabilityInstanceUpdate, db: Session = Depends(get_db)):
     db_v = finding_service.get_finding_by_id(db, id)
     update_data = data.model_dump(exclude_unset=True)
     return finding_service.update_finding(db, db_v, update_data)
-
-@router.post("/import")
-def bulk_create_vulnerabilities(data: schemas.VulnerabilityBulkImport, db: Session = Depends(get_db)):
-    return finding_service.bulk_process_vulnerabilities(db, data.vulnerabilities)
 
 @router.delete("/{id}", status_code=204)
 def delete_vulnerability_instance(id: SafeIntID, db: Session = Depends(get_db)):
