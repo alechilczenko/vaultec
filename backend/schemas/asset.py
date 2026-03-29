@@ -22,6 +22,9 @@ class AssetRead(BaseModel):
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
+class AssetListRead(BaseModel):
+    assets: list[AssetRead]
+
 class AssetCreate(BaseModel):
     name: str = Field(..., max_length=255, examples=["192.168.1.10", "https://api.example.com"])
     type: AssetType
@@ -31,3 +34,6 @@ class AssetUpdate(BaseModel):
     name: Optional[str] = Field(None, max_length=255)
     type: Optional[AssetType] = None
     description: Optional[str] = Field(None, max_length=5000)
+
+class AssetBulkImport(BaseModel):
+    assets: list[AssetCreate] = Field(..., max_items=100)

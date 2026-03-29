@@ -22,3 +22,6 @@ class NoteUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=100, strip_whitespace=True)
     content: Optional[str] = Field(None, min_length=1, max_length=5000, strip_whitespace=True)
     model_config = ConfigDict(from_attributes=True)
+
+class NoteListRead(BaseModel):
+    notes: list[NoteRead]

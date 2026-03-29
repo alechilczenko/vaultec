@@ -1,7 +1,7 @@
-from .asset import AssetRead, AssetCreate, AssetUpdate
+from .asset import AssetRead, AssetCreate, AssetUpdate, AssetBulkImport, AssetListRead
 from .auth import Token, TokenData
 from .enums import SeverityEnum
-from .note import NoteRead, NoteCreate, NoteUpdate
+from .note import NoteRead, NoteCreate, NoteUpdate, NoteListRead
 from .user import UserRead
 from .vulnerability import (
     VulnerabilityDefinitionRead,
@@ -11,5 +11,7 @@ from .vulnerability import (
     VulnerabilityByAsset,
     VulnerabilityFullRead,
     CatalogImport,
-    VulnerabilityBulkImport
+    VulnerabilityBulkImport,
+    CatalogRead,
+    VulnerabilityJoinedRead
 )
