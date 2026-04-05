@@ -7,7 +7,7 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 import database.models as models
-from auth.auth_utils import verify_password
+from auth.utils import verify_password
 
 def authenticate_user(db: Session, username: str, password: str):
     """

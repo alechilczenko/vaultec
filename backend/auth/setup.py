@@ -10,7 +10,7 @@ import sys
 import database.models as models
 from dotenv import load_dotenv
 from database.db import SessionLocal
-from .auth_utils import hash_password
+from .utils import hash_password
 from loguru import logger
 
 def is_password_strong(password: str):
@@ -34,22 +34,22 @@ def validate_environment():
     
     secret_key = os.getenv("SECRET_KEY")
     if not secret_key:
-        logger.critical("SECRET_KEY is missing from the environment variables.")
+        logger.critical("SECRET_KEY is missing from the environment variables")
         sys.exit(1)
  
     if len(secret_key) < 32:
-        logger.critical("The SECRET_KEY is too short (minimum 32 characters).")
+        logger.critical("The SECRET_KEY is too short (minimum 32 characters)")
         logger.info("Hint: Generate a strong one with 'openssl rand -hex 32'")
         sys.exit(1)
 
     admin_password = os.getenv("ADMIN_SETUP_PASSWORD")
     if not admin_password:
-        logger.critical("ADMIN_SETUP_PASSWORD is missing from the environment variables.")
+        logger.critical("ADMIN_SETUP_PASSWORD is missing from the environment variables")
         sys.exit(1)
         
     if not is_password_strong(admin_password):
         logger.critical("ADMIN_SETUP_PASSWORD is too weak.")
-        logger.info("Requirements: 12+ characters, including uppercase, lowercase, numbers, and symbols.")
+        logger.info("Requirements: 12+ characters, including uppercase, lowercase, numbers, and symbols")
         sys.exit(1)        
     return admin_password
 
@@ -69,12 +69,12 @@ def setup_admin_user():
             db.add(admin)
             db.commit()
             db.refresh(admin)
-            logger.info("Admin user created successfully.")
+            logger.info("Admin user created successfully")
         else:
             # Update password from environment variable
             admin.hashed_password = hash_password(admin_password)
             db.commit()
-            logger.info("Admin password updated from the environment variable.")
+            logger.info("Admin password updated from the environment variable")
 
     except Exception as e:
         logger.error(f"Database error during admin setup: {e}")

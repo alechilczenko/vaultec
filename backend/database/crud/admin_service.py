@@ -6,6 +6,7 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
+from loguru import logger
 import database.models as models
 
 def clear_all_findings(db: Session):
@@ -15,13 +16,13 @@ def clear_all_findings(db: Session):
     try:
         db.query(models.Vulnerability).delete()
         db.commit()
-        print("DEBUG: All findings have been cleared from the database.")
+        logger.info("All findings have been cleared from the database")
     except Exception as e:
         db.rollback()
-        print(f"ERROR: Could not clear findings. {str(e)}")
+        logger.error(f"Could not clear findings: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to clear findings. Please check server logs.")
+            detail="Failed to clear findings. Please check server logs")
 
 def clear_all_assets(db: Session):
     """
@@ -29,17 +30,17 @@ def clear_all_assets(db: Session):
     """
     # Check for dependent findings before attempting deletion
     if db.query(models.Vulnerability).count() > 0:
-        print("WARNING: Integrity check failed for asset deletion.")
+        logger.warning("Integrity check failed for asset deletion")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot delete assets. There are findings still linked to them.")
     try:
         db.query(models.Asset).delete()
         db.commit()
-        print("DEBUG: All assets have been cleared.")
+        logger.info("All assets have been cleared")
     except Exception as e:
         db.rollback()
-        print(f"ERROR: Could not clear assets. {str(e)}")
+        logger.info(f"Could not clear assets: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to clear assets due to an internal error.")
@@ -50,17 +51,17 @@ def clear_all_catalog(db: Session):
     """
     # Check if catalog is being used
     if db.query(models.Vulnerability).count() > 0:
-        print("WARNING: Integrity check failed for catalog deletion.")
+        logger.warning("Integrity check failed for catalog deletion")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot clear catalog. Definitions are referenced by existing findings.")
     try:
         db.query(models.VulnerabilityDefinition).delete()
         db.commit()
-        print("DEBUG: Catalog has been cleared.")
+        logger.info("Catalog has been cleared")
     except Exception as e:
         db.rollback()
-        print(f"ERROR: Could not clear catalog. {str(e)}")
+        logger.error(f"Could not clear catalog: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to clear catalog. Integrity constraints might be active.")
@@ -72,10 +73,10 @@ def clear_all_notes(db: Session):
     try:
         db.query(models.Note).delete()
         db.commit()
-        print("DEBUG: All notes have been cleared.")
+        logger.info("All notes have been cleared")
     except Exception as e:
         db.rollback()
-        print(f"ERROR: Could not clear notes. {str(e)}")
+        logger.error(f"Could not clear notes: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to clear notes due to an internal error.")
@@ -91,10 +92,10 @@ def clear_everything(db: Session):
         db.query(models.VulnerabilityDefinition).delete()
         db.query(models.Note).delete()
         db.commit()
-        print("DEBUG: Nuclear reset successful. All tables cleared.")
+        logger.info("Nuclear reset successful. All tables cleared")
     except Exception as e:
         db.rollback()
-        print(f"ERROR: Could not perform nuclear reset. {str(e)}")
+        logger.error(f"Could not perform nuclear reset: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to reset the database due to an internal error.")

@@ -9,8 +9,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from database.db import engine
 from database.models import Base
-from auth.auth_setup import setup_admin_user
-from auth.auth_utils import get_current_user
+from auth.setup import setup_admin_user
+from auth.utils import get_current_user
 from routes import catalog, findings, notes, auth, assets, admin
 from loguru import logger
 import os
@@ -22,7 +22,7 @@ async def lifespan(app: FastAPI):
         # Launch admin config
         setup_admin_user()
     except SystemExit:
-        logger.info("Application stopped: environment validation failed.")
+        logger.info("Application stopped: environment validation failed")
         os._exit(1) 
     yield
 
