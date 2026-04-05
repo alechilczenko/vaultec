@@ -12,14 +12,18 @@ from database.models import Base
 from auth.auth_setup import setup_admin_user
 from auth.auth_utils import get_current_user
 from routes import catalog, findings, notes, auth, assets, admin
+from loguru import logger
+import os
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
-    
-    # Launch admin config
-    setup_admin_user()
-    
+    try:
+        # Launch admin config
+        setup_admin_user()
+    except SystemExit:
+        logger.info("Application stopped: environment validation failed.")
+        os._exit(1) 
     yield
 
 app = FastAPI(lifespan=lifespan)
