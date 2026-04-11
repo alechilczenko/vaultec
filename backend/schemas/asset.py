@@ -13,7 +13,7 @@ from .common import SafeIntID
 class AssetType(str, Enum):
     IP = "IP"
     URL = "URL"
-    FQDN = "FQDN"
+    HOST = "Host"
 
 class AssetRead(BaseModel):
     id: SafeIntID
