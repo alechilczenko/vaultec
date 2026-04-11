@@ -52,7 +52,6 @@ def delete_finding(db: Session, db_obj: models.Vulnerability):
     except Exception as e:
         db.rollback()
         logger.error(f"Failed to delete finding '{vuln_title}' (ID: {finding_id}): {str(e)}")
-        print(e)
         raise HTTPException(
             status_code=500,
             detail=f"Database Error: Could not delete finding ID {finding_id}. Transaction rolled back."
