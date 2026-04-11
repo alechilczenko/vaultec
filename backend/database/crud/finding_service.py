@@ -11,22 +11,26 @@ from fastapi import HTTPException, status
 import database.models as models
 import schemas
 from database.crud import catalog_service, asset_service
+from loguru import logger
 
 def update_finding(db: Session, db_obj: models.Vulnerability, update_data: dict):
     """
     Applies updates to a finding instance with robust error handling.
     """
     finding_id = db_obj.id
+    finding_title = db_obj.definition.title if db_obj.definition else "Unknown Title"
+
     try:
         for key, value in update_data.items():
             setattr(db_obj, key, value)
         
         db.commit()
         db.refresh(db_obj)
+        logger.info(f"Finding updated: '{finding_title}' (ID: {finding_id})")
         return db_obj
     except Exception as e:
         db.rollback()
-
+        logger.error(f"Failed to update finding: '{finding_title}' (ID: {finding_id}): {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Update Error: Could not update finding ID {finding_id}. Check if the data format is correct."
@@ -37,12 +41,18 @@ def delete_finding(db: Session, db_obj: models.Vulnerability):
     Deletes a specific finding instance with error handling.
     """
     finding_id = db_obj.id
+    vuln_title = db_obj.definition.title if db_obj.definition else "Unknown Title"
+    asset_name = db_obj.asset.name if db_obj.asset else "Unknown Asset"
+
     try:
         db.delete(db_obj)
         db.commit()
+        logger.info(f"Finding deleted: '{vuln_title}' on Asset '{asset_name}' (ID: {finding_id})")
         return True 
     except Exception as e:
         db.rollback()
+        logger.error(f"Failed to delete finding '{vuln_title}' (ID: {finding_id}): {str(e)}")
+        print(e)
         raise HTTPException(
             status_code=500,
             detail=f"Database Error: Could not delete finding ID {finding_id}. Transaction rolled back."
@@ -94,7 +104,9 @@ def get_or_create_finding(db: Session, def_id: int, asset_id: int, vulnerability
 
         asset_name = existing_finding.asset.name if existing_finding.asset else f"ID {asset_id}"
         vuln_title = existing_finding.definition.title if existing_finding.definition else f"Def ID {def_id}"
-    
+
+        logger.warning(f"Duplicate finding blocked: '{vuln_title}' already active on '{asset_name}'")
+
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Duplicate Finding: The asset '{asset_name}' already has an active record "
@@ -109,10 +121,12 @@ def get_or_create_finding(db: Session, def_id: int, asset_id: int, vulnerability
         db.add(new_finding)
         db.commit()
         db.refresh(new_finding)
+        logger.info(f"New finding created: {vuln_title}")
         return new_finding
     
     except Exception as e:
         db.rollback()
+        logger.error(f"Failed to persist finding for Asset {asset_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Database Error: Failed to persist the new finding. Transaction rolled back.")
@@ -171,17 +185,48 @@ def get_vulnerabilities_joined(db: Session, skip: int = 0, limit: int = 100, sea
     
 
 def bulk_process_vulnerabilities(db: Session, vulnerabilities: schemas.VulnerabilityBulkImport):
-    created_count = 0
-    total = len(vulnerabilities)
+
+    processed_count = 0
+    errors = []
+
+    asset_ids = {v.asset_id for v in vulnerabilities}
+    asset_map = {
+        row.id: row.name 
+        for row in db.query(models.Asset.id, models.Asset.name).filter(models.Asset.id.in_(asset_ids)).all()
+    }
+
     for vuln in vulnerabilities:
+        
+        asset_label = asset_map.get(vuln.asset_id, f"Asset ID {vuln.asset_id}")
+        vuln_label = vuln.title if hasattr(vuln, 'title') else f"Def ID {vuln.definition_id}"
+        context = f"{asset_label} | {vuln_label}"
+
         try:
             process_vulnerability_entry(db, vuln)
-            created_count += 1
-        except (HTTPException, SQLAlchemyError) as e:
-            # Rollback only for expected business logic or DB operational errors
+            processed_count += 1
+        
+        except HTTPException as he:
+        
             db.rollback()
+            errors.append(f"{context}: {he.detail}")
             continue
+
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Unexpected error in bulk process for {context}: {str(e)}")
+            errors.append(f"{context}: Unexpected error")
+            continue
+
+    logger.info(f"Bulk process finished: {processed_count} imported, {len(errors)} failed")
+    
     return {
-        "imported": created_count, 
-        "skipped": total - created_count, 
-        "total": total }
+        "message": "Bulk processing completed.",
+        "summary": {
+            "imported": processed_count,
+            "failed": len(errors),
+            "total": len(vulnerabilities)
+        },
+        "details": {
+            "errors": errors
+        }
+    }

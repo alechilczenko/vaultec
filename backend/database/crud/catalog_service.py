@@ -7,6 +7,7 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
+from loguru import logger
 import database.models as models
 import schemas
 
@@ -41,13 +42,17 @@ def get_definition_by_title(db: Session, title: str):
     ).first()
 
 def save_definition(db: Session, new_def: models.VulnerabilityDefinition):
+
+    def_title = new_def.title
     db.add(new_def)
     try:
         db.commit()
         db.refresh(new_def)
+        logger.info(f"New definition saved to catalog: '{def_title}'")
         return new_def
     except Exception as e:
         db.rollback()
+        logger.error(f"Failed to save definition: '{def_title}': {str(e)}")
         raise HTTPException(
             status_code=500, 
             detail=f"Database Error: Could not persist data. {str(e)}"
@@ -57,9 +62,12 @@ def search_definitions(db: Session, query: str):
     return db.query(models.VulnerabilityDefinition).filter(models.VulnerabilityDefinition.title.ilike(f"%{query}%")).limit(10).all()
 
 def create_definition_strict(db: Session, data: schemas.VulnerabilityCreate):
+
+    title = data.title.strip()
     existing = get_definition_by_title(db, data.title)
     
     if existing:
+        logger.warning(f"Definition creation blocked: '{title}' already exists in catalog")
         raise HTTPException(
             status_code=400,
             detail=f"Catalog Error: A definition with the title '{data.title.strip()}' already exists in the database.")
@@ -101,6 +109,7 @@ def update_definition(db: Session, def_id: int, update_data: dict):
         existing = get_definition_by_title(db, clean_title)
         
         if existing and existing.id != db_obj.id:
+            logger.warning(f"Catalog update blocked: Title '{clean_title}' already exists (ID: {existing.id})")
             raise HTTPException(
                 status_code=400, 
                 detail=f"Catalog Conflict: The title '{clean_title}' is already in use by definition ID {existing.id}."
@@ -117,8 +126,8 @@ def update_definition(db: Session, def_id: int, update_data: dict):
 
 def import_definitions(db: Session, data: schemas.CatalogImport):
     # Handles bulk import and updates for definitions
-    created_count = 0
-    updated_count = 0
+    created_titles = []
+    updated_titles = []
 
     for item in data.definitions:
         clean_title = item.title.strip()
@@ -131,7 +140,7 @@ def import_definitions(db: Session, data: schemas.CatalogImport):
             existing.description = item.description
             existing.recommendation = item.recommendation
             existing.tags = tag_str
-            updated_count += 1
+            updated_titles.append(clean_title)
         else:
             new_defn = models.VulnerabilityDefinition(
                 title=clean_title,
@@ -141,20 +150,26 @@ def import_definitions(db: Session, data: schemas.CatalogImport):
                 tags=tag_str
             )
             db.add(new_defn)
-            created_count += 1
+            created_titles.append(clean_title)
         db.flush()
     try:
         db.commit()
+        logger.info(f"Catalog bulk import finished: {len(created_titles)} created, {len(updated_titles)} updated")
     except Exception as e:
         db.rollback()
+        logger.error(f"Critical error during catalog bulk import: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Database error during import: {str(e)}")
 
     return {
-        "status": "success",
+        "message": "Catalog import completed successfully.",
+        "summary": {
+            "created": len(created_titles),
+            "updated": len(updated_titles),
+            "total": len(data.definitions)
+        },
         "details": {
-            "created": created_count,
-            "updated": updated_count,
-            "total_processed": len(data.definitions)
+            "new_definitions": created_titles,
+            "updated_definitions": updated_titles
         }
     }
 
@@ -167,8 +182,10 @@ def delete_definition(db: Session, def_id: int):
     try:
         db.delete(db_obj)
         db.commit()
+        logger.info(f"Definition: '{title}' (ID: {def_id}) deleted from catalog")
     except IntegrityError:
         db.rollback()
+        logger.warning(f"Deletion blocked: Definition '{title}' is in use by active findings")
         raise HTTPException(
             status_code=400,
             detail=(
@@ -177,8 +194,9 @@ def delete_definition(db: Session, def_id: int):
                 "Remove those findings first."
             )
         )
-    except Exception:
+    except Exception as e:
         db.rollback()
+        logger.error(f"Unexpected error deleting definition '{title}': {str(e)}")
         raise HTTPException(
             status_code=500,
             detail="Database Error: An unexpected error occurred while deleting the definition."

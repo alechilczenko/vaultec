@@ -7,7 +7,7 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
-from typing import List
+from loguru import logger
 import database.models as models
 import schemas
 
@@ -33,22 +33,27 @@ def create_asset(db: Session, asset: schemas.AssetCreate):
     """
     db_asset = db.query(models.Asset).filter(models.Asset.name == asset.name).first()
     if db_asset:
+        logger.warning(f"Asset creation blocked: Name '{asset.name}' already exists")
         raise HTTPException(status_code=400, detail=f"Conflict: Asset with name '{asset.name}' is already registered.")
     
     new_asset = models.Asset(name=asset.name, type=asset.type, description=asset.description)
     db.add(new_asset)
     db.commit()
     db.refresh(new_asset)
+    logger.info(f"Asset created: {asset.name} (ID: {new_asset.id})")
     return new_asset
 
 def update_asset(db: Session, db_asset: models.Asset, update_data: dict):
     """
     Updates an asset, ensuring the new name does not conflict with existing ones.
     """
+    original_name = db_asset.name
+
     if "name" in update_data:
         new_name = update_data["name"]
         existing = db.query(models.Asset).filter(models.Asset.name == update_data["name"], models.Asset.id != db_asset.id).first()
         if existing:
+            logger.warning(f"Update blocked: Name '{new_name}' already assigned to ID {existing.id}")
             raise HTTPException(status_code=400, detail=f"Update Conflict: The name '{new_name}' is already assigned to another asset (ID: {existing.id}).")
 
     for key, value in update_data.items():
@@ -56,14 +61,15 @@ def update_asset(db: Session, db_asset: models.Asset, update_data: dict):
 
     db.commit()
     db.refresh(db_asset)
+    logger.info(f"Asset '{original_name}' updated successfully")
     return db_asset
 
 def import_assets(db: Session, assets: schemas.AssetBulkImport):
     """
     Bulk imports assets, skipping those with existing names.
     """
-    added_count = 0
-    skipped_count = 0
+    added_names = []
+    skipped_names = []
     
     existing_names = {row[0] for row in db.query(models.Asset.name).all()}
     
@@ -72,21 +78,29 @@ def import_assets(db: Session, assets: schemas.AssetBulkImport):
         if asset_data.name not in existing_names:
             new_assets_objs.append(models.Asset(name=asset_data.name,type=asset_data.type,description=asset_data.description))
             existing_names.add(asset_data.name)
-            added_count += 1
+            added_names.append(asset_data.name)
         else:
-            skipped_count += 1
+            skipped_names.append(asset_data.name)
             
     if new_assets_objs:
         try:
             db.add_all(new_assets_objs)
             db.commit()
+            logger.info(f"Bulk import successful: {len(added_names)} assets added")
         except Exception as e:
             db.rollback()
+            logger.error(f"Bulk asset import failed: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     return {
         "message": "Import completed",
-        "added": added_count,
-        "skipped": skipped_count
+        "summary": {
+            "added_count": len(added_names),
+            "skipped_count": len(skipped_names)
+        },
+        "details": {
+            "added_assets": added_names,
+            "ignored_duplicates": skipped_names
+        }
     }
 
 def delete_asset(db: Session, db_asset: models.Asset):
@@ -97,14 +111,17 @@ def delete_asset(db: Session, db_asset: models.Asset):
     try:
         db.delete(db_asset)
         db.commit()
+        logger.info(f"Asset '{asset_name}' deleted successfully")
     except IntegrityError:
         db.rollback()
+        logger.warning(f"Deletion blocked: Asset '{asset_name}' has associated findings")
         raise HTTPException(
             status_code=400,
             detail=f"Dependency Error: Cannot delete '{asset_name}'. It has associated findings that must be removed first."
         )
     except Exception as e:
         db.rollback()
+        logger.error(f"Unexpected error deleting asset '{asset_name}': {str(e)}")
         raise HTTPException(
             status_code=500,
             detail="Internal Server Error: An unexpected error occurred while deleting the asset."

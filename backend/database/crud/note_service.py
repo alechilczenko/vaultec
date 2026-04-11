@@ -6,6 +6,7 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
+from loguru import logger
 import database.models as models
 import schemas
 
@@ -19,6 +20,7 @@ def create_note(db: Session, note_data: schemas.NoteCreate):
     """
     Create a new note and save it to the database.
     """
+    note_title = note_data.title
     db_note = models.Note(
         title=note_data.title,
         content=note_data.content
@@ -26,17 +28,21 @@ def create_note(db: Session, note_data: schemas.NoteCreate):
     db.add(db_note)
     db.commit()
     db.refresh(db_note)
+    logger.info(f"Note created successfully: '{note_title}' (ID: {db_note.id})")
     return db_note
 
 def update_note(db: Session, db_note: models.Note, update_data: dict):
     """
     Apply updates to an existing note and commit the changes.
     """
+    original_title = db_note.title
+
     for key, value in update_data.items():
         setattr(db_note, key, value)
     
     db.commit()
     db.refresh(db_note)
+    logger.info(f"Note '{original_title}' updated successfully")
     return db_note
 
 def delete_note(db: Session, db_note: models.Note):
@@ -44,13 +50,15 @@ def delete_note(db: Session, db_note: models.Note):
     Delete a note from the database with error handling and rollback.
     """
     note_id = db_note.id
+    note_title = db_note.title
     try:
         db.delete(db_note)
         db.commit()
+        logger.info(f"Note '{note_title}' deleted successfully")
         return True
-    except Exception:
+    except Exception as e:
         db.rollback()
-        # Proporcionamos el ID para que el log o el usuario identifiquen el fallo
+        logger.error(f"Unexpected error deleting note '{note_title}': {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Delete Error: Could not delete note ID {note_id}. Transaction rolled back."
