@@ -14,6 +14,7 @@ from auth.utils import get_current_user
 from config.logger_config import setup_app_logging
 from routes import catalog, findings, notes, auth, assets, admin
 from loguru import logger
+from inspect import cleandoc
 import os
 
 # Initialize logging BEFORE creating the FastAPI app
@@ -30,8 +31,24 @@ async def lifespan(app: FastAPI):
         os._exit(1) 
     yield
 
-app = FastAPI(lifespan=lifespan)
-
+app = FastAPI(
+    lifespan=lifespan,
+    title="API",
+    description=cleandoc("""
+        ## Vulnerability Management Platform
+        Standardized API for managing assets, catalog definitions, and security findings.
+        
+        ### Features:
+        * **Assets**: Manage infrastructure inventory.
+        * **Catalog**: Centralized vulnerability definitions.
+        * **Findings**: Track and remediate security issues.
+    """),
+    version="1.0.0",
+    contact={
+        "name": "Alejandro Chilczenko",
+        "url": "https://github.com/alechilczenko",
+    },
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], 
