@@ -11,9 +11,13 @@ from database.db import engine
 from database.models import Base
 from auth.setup import setup_admin_user
 from auth.utils import get_current_user
+from config.logger_config import setup_app_logging
 from routes import catalog, findings, notes, auth, assets, admin
 from loguru import logger
 import os
+
+# Initialize logging BEFORE creating the FastAPI app
+setup_app_logging()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
