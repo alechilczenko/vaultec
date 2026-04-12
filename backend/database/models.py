@@ -5,6 +5,7 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 """
 
 from sqlalchemy import Boolean, Column, DateTime, Integer, String, ForeignKey, Text, func, ARRAY
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from database.db import Base
 
@@ -39,9 +40,7 @@ class Vulnerability(Base):
     id = Column(Integer, primary_key=True)
     status = Column(String, default="open")
     evidence_type = Column(String) # "http", "terminal", "log"
-    http_request = Column(Text, nullable=True)
-    http_response = Column(Text, nullable=True)
-    general_evidence = Column(Text, nullable=True)
+    evidence = Column(JSONB, nullable=True)
     discovered_by = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     notes = Column(Text, nullable=True)
