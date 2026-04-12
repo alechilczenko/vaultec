@@ -5,17 +5,22 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 """
 
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from fastapi import HTTPException, status
 from loguru import logger
 import database.models as models
+
+def execute_truncate(db: Session, table_name: str):
+    """Internal helper to execute the reset."""
+    db.execute(text(f"TRUNCATE TABLE {table_name} RESTART IDENTITY CASCADE;"))
+    db.commit()
 
 def clear_all_findings(db: Session):
     """
     Deletes all findings (vulnerabilities) from the database.
     """
     try:
-        db.query(models.Vulnerability).delete()
-        db.commit()
+        execute_truncate(db, "vulnerabilities")
         logger.info("All findings have been cleared from the database")
     except Exception as e:
         db.rollback()
@@ -35,8 +40,7 @@ def clear_all_assets(db: Session):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot delete assets. There are findings still linked to them.")
     try:
-        db.query(models.Asset).delete()
-        db.commit()
+        execute_truncate(db, "assets")
         logger.info("All assets have been cleared")
     except Exception as e:
         db.rollback()
@@ -56,8 +60,7 @@ def clear_all_catalog(db: Session):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot clear catalog. Definitions are referenced by existing findings.")
     try:
-        db.query(models.VulnerabilityDefinition).delete()
-        db.commit()
+        execute_truncate(db, "vulnerability_definitions")
         logger.info("Catalog has been cleared")
     except Exception as e:
         db.rollback()
@@ -71,8 +74,7 @@ def clear_all_notes(db: Session):
     Deletes all notes from the database.
     """
     try:
-        db.query(models.Note).delete()
-        db.commit()
+        execute_truncate(db, "notes")
         logger.info("All notes have been cleared")
     except Exception as e:
         db.rollback()
@@ -87,11 +89,9 @@ def clear_everything(db: Session):
     to respect foreign key constraints.
     """
     try:
-        db.query(models.Vulnerability).delete()
-        db.query(models.Asset).delete()
-        db.query(models.VulnerabilityDefinition).delete()
-        db.query(models.Note).delete()
-        db.commit()
+        tables = ["vulnerabilities", "assets", "vulnerability_definitions", "notes"]
+        for table in tables:
+            execute_truncate(db, table)
         logger.info("Nuclear reset successful. All tables cleared")
     except Exception as e:
         db.rollback()
