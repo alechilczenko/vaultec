@@ -4,7 +4,7 @@ Copyright (C) 2026 Alejandro Chilczenko
 Licensed under GNU GPLv3 - See the LICENSE file for details
 """
 
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, ForeignKey, Text, func
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, ForeignKey, Text, func, ARRAY
 from sqlalchemy.orm import relationship
 from database.db import Base
 
@@ -31,7 +31,7 @@ class VulnerabilityDefinition(Base):
     severity = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     recommendation = Column(Text, nullable=True)
-    tags = Column(String, nullable=True)
+    tags = Column(ARRAY(String), default=[])
     instances = relationship("Vulnerability", back_populates="definition", cascade="all, delete-orphan")
 
 class Vulnerability(Base):
