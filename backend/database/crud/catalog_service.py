@@ -11,8 +11,8 @@ from loguru import logger
 import database.models as models
 import schemas
 
-def get_all_definitions(db: Session):
-    return db.query(models.VulnerabilityDefinition).all()
+def get_all_definitions(db: Session, skip: int = 0, limit: int = 100):
+    return db.query(models.VulnerabilityDefinition).offset(skip).limit(limit).all()
 
 def get_definition_by_id(db: Session, def_id: int):
     return db.query(models.VulnerabilityDefinition).filter(

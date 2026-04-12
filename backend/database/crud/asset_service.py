@@ -21,11 +21,11 @@ def check_asset_exists(db: Session, asset_id: int):
         raise HTTPException(status_code=404, detail=f"Reference Error: Asset with ID {asset_id} does not exist. Cannot link finding.")
     return db_asset
 
-def get_all_assets(db: Session):
+def get_all_assets(db: Session, skip: int = 0, limit: int = 100):
     """
     Retrieves all assets.
     """
-    return db.query(models.Asset).all()
+    return db.query(models.Asset).offset(skip).limit(limit).all()
 
 def create_asset(db: Session, asset: schemas.AssetCreate):
     """
