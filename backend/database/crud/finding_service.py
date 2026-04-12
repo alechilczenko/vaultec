@@ -140,8 +140,8 @@ def process_vulnerability_entry(db: Session, vuln_data: schemas.VulnerabilityCre
 
     # 1. Prepare Definition Data
     def_data = vuln_data.model_dump(exclude={
-        "asset_id", "status", "evidence_type", "http_request", 
-        "http_response", "general_evidence", "discovered_by", "notes"
+        "asset_id", "status", "evidence_type", 
+        "evidence", "discovered_by", "notes"
     })
  
     v_id = def_data.pop("definition_id", None)
@@ -154,9 +154,7 @@ def process_vulnerability_entry(db: Session, vuln_data: schemas.VulnerabilityCre
     finding_info = {
         "status": vuln_data.status,
         "evidence_type": vuln_data.evidence_type,
-        "http_request": vuln_data.http_request,
-        "http_response": vuln_data.http_response,
-        "general_evidence": vuln_data.general_evidence,
+        "evidence": vuln_data.evidence,
         "discovered_by": vuln_data.discovered_by,
         "notes": vuln_data.notes,
     }
