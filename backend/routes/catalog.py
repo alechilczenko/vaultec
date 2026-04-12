@@ -17,8 +17,8 @@ router = APIRouter(
 )
 
 @router.get("/", response_model=schemas.CatalogRead)
-def get_vulnerability_catalog(db: Session = Depends(get_db)):
-    return {"definitions": catalog_service.get_all_definitions(db)}
+def get_vulnerability_catalog(db: Session = Depends(get_db), skip: int = Query(0, ge=0), limit: int = Query(100, ge=1, le=500)):
+    return {"definitions": catalog_service.get_all_definitions(db, skip=skip, limit=limit)}
 
 @router.get("/search", response_model=schemas.CatalogRead)
 def search_definitions(q: str = Query(..., min_length=2, max_length=50), db: Session = Depends(get_db)):

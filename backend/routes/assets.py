@@ -4,7 +4,7 @@ Copyright (C) 2026 Alejandro Chilczenko
 Licensed under GNU GPLv3 - See the LICENSE file for details
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from database.db import get_db
 from typing import List
@@ -17,8 +17,8 @@ router = APIRouter(
     tags=["Assets"]
 )
 @router.get("", response_model=schemas.AssetListRead)
-def list_assets(db: Session = Depends(get_db)):
-    return {"assets": asset_service.get_all_assets(db)}
+def list_assets(db: Session = Depends(get_db), skip: int = Query(0, ge=0), limit: int = Query(100, ge=1, le=500)):
+    return {"assets": asset_service.get_all_assets(db, skip=skip, limit=limit)}
 
 @router.post("/create", response_model=schemas.AssetRead)
 def create_asset(asset: schemas.AssetCreate, db: Session = Depends(get_db)):
