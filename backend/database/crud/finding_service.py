@@ -93,6 +93,9 @@ def get_or_create_finding(db: Session, def_id: int, asset_id: int, vulnerability
     Checks if an open finding already exists for the given asset and definition.
     If it exists, raises a 400 error. Otherwise, creates a new one.
     """
+    defn = db.query(models.VulnerabilityDefinition).filter(models.VulnerabilityDefinition.id == def_id).first()
+    vuln_title = defn.title if defn else f"Def ID {def_id}"
+
     # 1. Look for an existing open finding
     existing_finding = db.query(models.Vulnerability).filter(
         models.Vulnerability.definition_id == def_id,
@@ -102,8 +105,6 @@ def get_or_create_finding(db: Session, def_id: int, asset_id: int, vulnerability
     if existing_finding:
 
         asset_name = existing_finding.asset.name if existing_finding.asset else f"ID {asset_id}"
-        vuln_title = existing_finding.definition.title if existing_finding.definition else f"Def ID {def_id}"
-
         logger.warning(f"Duplicate finding blocked: '{vuln_title}' already active on '{asset_name}'")
 
         raise HTTPException(
