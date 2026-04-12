@@ -21,3 +21,11 @@ class FindingStatus(str, enum.Enum):
     VERIFIED = "verified"      
     RISK_ACCEPTED = "risk_accepted"
     FALSE_POSITIVE = "false_positive"
+
+class EvidenceType(str, enum.Enum):
+    HTTP = "http"           # Requests, responses, headers
+    NETWORK = "network"     # Banners, port scans, protocol details
+    LOG = "log"             # System logs, app logs
+    TERMINAL = "terminal"   # Command output, console traces
+    SOURCE_CODE = "source_code"  # Vulnerable code snippets
+    GENERAL = "general"     # Default for text or mixed data
