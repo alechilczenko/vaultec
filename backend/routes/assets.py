@@ -30,13 +30,13 @@ def import_assets(assets: schemas.AssetBulkImport, db: Session = Depends(get_db)
 
 @router.patch("/{id}", response_model=schemas.AssetRead)
 def update_asset(id: SafeIntID, asset_data: schemas.AssetUpdate, db: Session = Depends(get_db)):
-    db_asset = asset_service.check_asset_exists(db, id)
+    db_asset = asset_service.get_asset_by_id(db, id)
     update_dict = asset_data.model_dump(exclude_unset=True)
     return asset_service.update_asset(db, db_asset, update_dict)
 
 @router.delete("/{id}", status_code=204)
 def delete_asset(id: SafeIntID, db: Session = Depends(get_db)):
-    db_asset = asset_service.check_asset_exists(db, id)
+    db_asset = asset_service.get_asset_by_id(db, id)
     asset_service.delete_asset(db, db_asset)
     return None
 

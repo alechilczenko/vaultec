@@ -30,12 +30,12 @@ def get_finding_detail(id: SafeIntID, db: Session = Depends(get_db)):
 
 @router.post("/create", response_model=schemas.VulnerabilityFullRead)
 def create_vulnerabilities(vulnerability: schemas.VulnerabilityCreate, db: Session = Depends(get_db)):
-    asset_service.check_asset_exists(db, vulnerability.asset_id)
+    asset_service.get_asset_by_name(db, vulnerability.asset_name)
     return finding_service.process_vulnerability_entry(db, vulnerability)
 
 @router.post("/import")
 def bulk_create_vulnerabilities(data: schemas.VulnerabilityBulkImport, db: Session = Depends(get_db)):
-    return finding_service.bulk_process_vulnerabilities(db, data.vulnerabilities)
+    return finding_service.bulk_process_vulnerabilities(db, data)
 
 @router.patch("/{id}", response_model=schemas.VulnerabilityFullRead)
 def update_vulnerability_instance(id: SafeIntID, data: schemas.VulnerabilityInstanceUpdate, db: Session = Depends(get_db)):
