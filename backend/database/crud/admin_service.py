@@ -11,9 +11,22 @@ from loguru import logger
 import database.models as models
 
 def execute_truncate(db: Session, table_name: str):
-    """Internal helper to execute the reset."""
-    db.execute(text(f"TRUNCATE TABLE {table_name} RESTART IDENTITY CASCADE;"))
-    db.commit()
+    """
+    Executes a safe TRUNCATE by validating the table name against a whitelist.
+    """
+    # Defined allowed tables to prevent string manipulation and unauthorized access
+    ALLOWED_TABLES = {"assets", "vulnerability_definitions", "vulnerabilities", "notes"}
+    if table_name not in ALLOWED_TABLES:
+        logger.error(f"TRUNCATE attempt on unauthorized or non-existent table: {table_name}")
+        raise HTTPException(status_code=400, detail="Operation not allowed for this table.")
+    try:
+        query = text(f"TRUNCATE TABLE {table_name} RESTART IDENTITY CASCADE;")
+        db.execute(query)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error truncating table {table_name}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal error while clearing the table.")
 
 def clear_all_findings(db: Session):
     """
