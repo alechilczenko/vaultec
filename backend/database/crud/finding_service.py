@@ -5,7 +5,6 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 """
 
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import func, or_
 from fastapi import HTTPException, status
 import database.models as models
@@ -88,45 +87,41 @@ def get_finding_by_id(db: Session, finding_id: int):
         )
     return finding
 
-def get_or_create_finding(db: Session, def_id: int, asset_id: int, vulnerability_data: dict):
+def get_or_create_finding(db: Session, defn: models.VulnerabilityDefinition, asset: models.Asset, vulnerability_data: dict):
     """
     Checks if an open finding already exists for the given asset and definition.
     If it exists, raises a 400 error. Otherwise, creates a new one.
     """
-    defn = db.query(models.VulnerabilityDefinition).filter(models.VulnerabilityDefinition.id == def_id).first()
-    vuln_title = defn.title if defn else f"Def ID {def_id}"
 
     # 1. Look for an existing open finding
     existing_finding = db.query(models.Vulnerability).filter(
-        models.Vulnerability.definition_id == def_id,
-        models.Vulnerability.asset_id == asset_id
+        models.Vulnerability.definition_id == defn.id,
+        models.Vulnerability.asset_id == asset.id
     ).first()
 
     if existing_finding:
-
-        asset_name = existing_finding.asset.name if existing_finding.asset else f"ID {asset_id}"
-        logger.warning(f"Duplicate finding blocked: '{vuln_title}' already active on '{asset_name}'")
-
+        logger.warning(f"Duplicate finding blocked: '{defn.title}' already active on '{asset.name}'")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Duplicate Finding: The asset '{asset_name}' already has an active record "
-                f"for '{vuln_title}'. Duplicate prevented.")
+            detail=f"Duplicate Finding: The asset '{asset.name}' already has an active record for '{defn.title}'. Duplicate prevented."
+        )
     
     # 2. If no duplicate, create the new instance
     new_finding = models.Vulnerability(
-        definition_id=def_id,
-        asset_id=asset_id,
-        **vulnerability_data)
+        definition_id=defn.id,
+        asset_id=asset.id,
+        **vulnerability_data
+    )
     try:
         db.add(new_finding)
         db.commit()
         db.refresh(new_finding)
-        logger.info(f"New finding created: {vuln_title}")
+        logger.info(f"New finding created: '{defn.title}' on '{asset.name}'")
         return new_finding
     
     except Exception as e:
         db.rollback()
-        logger.error(f"Failed to persist finding for Asset {asset_id}: {str(e)}")
+        logger.error(f"Failed to persist finding for Asset '{asset.name}': {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Database Error: Failed to persist the new finding. Transaction rolled back.")
@@ -136,19 +131,18 @@ def process_vulnerability_entry(db: Session, vuln_data: schemas.VulnerabilityCre
     Orchestrates the creation of a definition and its associated finding.
     Logic shared between single and bulk imports.
     """
-    asset_service.check_asset_exists(db, vuln_data.asset_id)
+    target_asset = asset_service.get_asset_by_name(db, vuln_data.asset_name)
 
     # 1. Prepare Definition Data
     def_data = vuln_data.model_dump(exclude={
-        "asset_id", "status", "evidence_type", 
+        "asset_name", "status", "evidence_type", 
         "evidence", "discovered_by", "notes"
     })
- 
-    v_id = def_data.pop("definition_id", None)
+
     v_title = def_data.pop("title")
 
     # 2. Get/Create Definition
-    defn = catalog_service.get_or_create_definition(db, def_id=v_id, title=v_title, **def_data)
+    target_defn = catalog_service.get_or_create_definition(db, title=v_title, **def_data)
 
     # 3. Prepare Finding Data
     finding_info = {
@@ -159,7 +153,7 @@ def process_vulnerability_entry(db: Session, vuln_data: schemas.VulnerabilityCre
         "notes": vuln_data.notes,
     }
     # 4. Create Finding
-    return get_or_create_finding(db, defn.id, vuln_data.asset_id, finding_info)
+    return get_or_create_finding(db, target_defn, target_asset, finding_info)
 
 def get_vulnerabilities_joined(db: Session, skip: int = 0, limit: int = 100, search_query: str = None):
     query = db.query(
@@ -182,37 +176,34 @@ def get_vulnerabilities_joined(db: Session, skip: int = 0, limit: int = 100, sea
     return query.offset(skip).limit(limit).all()
     
 
-def bulk_process_vulnerabilities(db: Session, vulnerabilities: schemas.VulnerabilityBulkImport):
-
+def bulk_process_vulnerabilities(db: Session, import_data: schemas.VulnerabilityBulkImport):
     processed_count = 0
     errors = []
 
-    asset_ids = {v.asset_id for v in vulnerabilities}
-    asset_map = {
-        row.id: row.name 
-        for row in db.query(models.Asset.id, models.Asset.name).filter(models.Asset.id.in_(asset_ids)).all()
-    }
-
-    for vuln in vulnerabilities:
-        
-        asset_label = asset_map.get(vuln.asset_id, f"Asset ID {vuln.asset_id}")
-        vuln_label = vuln.title if hasattr(vuln, 'title') else f"Def ID {vuln.definition_id}"
-        context = f"{asset_label} | {vuln_label}"
-
+    for vuln in import_data.vulnerabilities:
         try:
             process_vulnerability_entry(db, vuln)
             processed_count += 1
         
         except HTTPException as he:
-        
             db.rollback()
-            errors.append(f"{context}: {he.detail}")
+            errors.append({
+                "title": vuln.title,
+                "asset": vuln.asset_name,
+                "reason": he.detail,
+                "status_code": he.status_code
+            })
             continue
 
         except Exception as e:
             db.rollback()
-            logger.error(f"Unexpected error in bulk process for {context}: {str(e)}")
-            errors.append(f"{context}: Unexpected error")
+            logger.error(f"Unexpected error in bulk process for {vuln.asset_name} | {vuln.title}: {str(e)}")
+            errors.append({
+                "asset": vuln.asset_name,
+                "title": vuln.title,
+                "reason": "Internal Server Error: Unexpected exception occurred",
+                "status_code": 500
+            })
             continue
 
     logger.info(f"Bulk process finished: {processed_count} imported, {len(errors)} failed")
@@ -222,7 +213,7 @@ def bulk_process_vulnerabilities(db: Session, vulnerabilities: schemas.Vulnerabi
         "summary": {
             "imported": processed_count,
             "failed": len(errors),
-            "total": len(vulnerabilities)
+            "total": len(import_data.vulnerabilities)
         },
         "details": {
             "errors": errors
