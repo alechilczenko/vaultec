@@ -73,17 +73,13 @@ def create_definition_strict(db: Session, data: schemas.VulnerabilityCreate):
     )
     return save_definition(db, new_def)
 
-def get_or_create_definition(db: Session, def_id: int = None, title: str = None, **kwargs):
-    if def_id:
-        existing_by_id = get_definition_by_id(db, def_id)
-        if existing_by_id:
-            return existing_by_id    
-    if title:
-        existing_by_title = get_definition_by_title(db, title)
-        if existing_by_title:
-            return existing_by_title
+def get_or_create_definition(db: Session, title: str, **kwargs):
+
+    clean_title = title.strip()
+    existing = get_definition_by_title(db, clean_title)
+    if existing:
+        return existing
     
-    clean_title = title.strip() if title else title
     new_def = models.VulnerabilityDefinition(title=clean_title, **kwargs)
     return save_definition(db, new_def)
 

@@ -11,14 +11,33 @@ from loguru import logger
 import database.models as models
 import schemas
 
-def check_asset_exists(db: Session, asset_id: int):
+def get_asset_by_id(db: Session, asset_id: int):
     """
-    Validates if an asset exists in the database.
-    Raises 404 if not found.
+    Retrieves an asset by its internal ID.
+    Raises a 404 error if the ID does not exist in the database.
     """
     db_asset = db.query(models.Asset).filter(models.Asset.id == asset_id).first()
+    
     if not db_asset:
-        raise HTTPException(status_code=404, detail=f"Reference Error: Asset with ID {asset_id} does not exist. Cannot link finding.")
+        logger.error(f"Asset lookup failed: ID '{asset_id}' not found in database")
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Asset with ID {asset_id} not found in the inventory.")
+            
+    return db_asset
+
+def get_asset_by_name(db: Session, name: str):
+    """
+    Retrieves an asset by its unique name. 
+    Raises a 404 error if the asset is not registered in the inventory.
+    """
+    db_asset = db.query(models.Asset).filter(models.Asset.name == name).first()
+    
+    if not db_asset:
+        logger.error(f"Asset lookup failed: '{name}' not found in database")
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Asset '{name}' not found. Please register the asset before importing findings.")
     return db_asset
 
 def get_all_assets(db: Session, skip: int = 0, limit: int = 100):
