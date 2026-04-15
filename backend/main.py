@@ -12,13 +12,13 @@ from database.models import Base
 from auth.setup import setup_admin_user
 from auth.utils import get_current_user
 from config.logger_config import setup_app_logging
-from routes import catalog, findings, notes, auth, assets, admin
+from routes import catalog, findings, notes, auth, assets, admin, projects
 from loguru import logger
 from inspect import cleandoc
 import os
 
 # Initialize logging BEFORE creating the FastAPI app
-setup_app_logging()
+# setup_app_logging()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -56,8 +56,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],)
 
-app.include_router(auth.router) # Only unprotected endpoint
+# Authentication routes (unprotected)
+app.include_router(auth.router)
 
+# Protected routes
+app.include_router(projects.router, dependencies=[Depends(get_current_user)])
 app.include_router(catalog.router,dependencies=[Depends(get_current_user)])
 app.include_router(findings.router,dependencies=[Depends(get_current_user)])
 app.include_router(notes.router,dependencies=[Depends(get_current_user)])
