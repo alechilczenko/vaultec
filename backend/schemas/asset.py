@@ -8,7 +8,7 @@ from typing import Optional
 from pydantic import BaseModel, ConfigDict, Field
 from enum import Enum
 from datetime import datetime
-from .common import SafeIntID
+from .common import SafeIntID, BaseSchema
 
 class AssetType(str, Enum):
     IP = "IP"
@@ -25,12 +25,12 @@ class AssetRead(BaseModel):
 class AssetListRead(BaseModel):
     assets: list[AssetRead]
 
-class AssetCreate(BaseModel):
+class AssetCreate(BaseSchema):
     name: str = Field(..., max_length=255, examples=["192.168.1.10", "https://api.example.com"])
     type: AssetType
     description: Optional[str] = Field(None, max_length=5000)
 
-class AssetUpdate(BaseModel):
+class AssetUpdate(BaseSchema):
     name: Optional[str] = Field(None, max_length=255)
     type: Optional[AssetType] = None
     description: Optional[str] = Field(None, max_length=5000)

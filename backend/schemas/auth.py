@@ -5,10 +5,11 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 """
 
 from pydantic import BaseModel, Field
+from .common import BaseSchema
 
 class Token(BaseModel):
     access_token: str
     token_type: str
 
-class TokenData(BaseModel):
+class TokenData(BaseSchema):
     username: str | None = Field(None, max_length=50)

@@ -7,8 +7,9 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 from pydantic import BaseModel, ConfigDict, Field
 from typing import List
 from datetime import datetime
+from .common import BaseSchema
 
-class ProjectCreate(BaseModel):
+class ProjectCreate(BaseSchema):
     name: str = Field(..., min_length=3, max_length=100, example="pentest-2026")
     client_name: str = Field(..., min_length=2, max_length=100, example="Client Name")
 
