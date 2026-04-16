@@ -25,22 +25,11 @@ def get_asset_by_id(db: Session, asset_id: int, project_id: int):
         raise HTTPException(status_code=404, detail="Asset not found in this project.")
     return db_asset
 
-def get_asset_by_name(db: Session, name: str, project_id: int):
-    """
-    Retrieves an asset by its unique name. 
-    Raises a 404 error if the asset is not registered in the inventory.
-    """
-    db_asset = db.query(models.Asset).filter(
+def get_asset_by_name_silent(db: Session, name: str, project_id: int):
+    return db.query(models.Asset).filter(
         models.Asset.name == name, 
         models.Asset.project_id == project_id
     ).first()
-    
-    if not db_asset:
-        logger.error(f"Asset lookup failed: '{name}' not found in this project.")
-        raise HTTPException(
-            status_code=404, 
-            detail=f"Asset '{name}' not found. Please register the asset before importing findings.")
-    return db_asset
 
 def get_all_assets(db: Session, project_id: int, skip: int = 0, limit: int = 100):
     """
@@ -52,12 +41,14 @@ def create_asset(db: Session, asset: schemas.AssetCreate, project_id: int):
     """
     Creates a new asset after verifying the name is unique.
     """
-    existing = get_asset_by_name(db, asset.name, project_id)
+    existing = get_asset_by_name_silent(db, asset.name, project_id)
     if existing:
-        logger.warning(f"Asset creation blocked: Name '{asset.name}' already exists in this project")
-        raise HTTPException(status_code=400, detail=f"Asset '{asset.name}' already exists in this project.")
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Asset '{asset.name}' already exists in this project."
+        )
     
-    new_asset = models.Asset(name=asset.name, type=asset.type, description=asset.description)
+    new_asset = models.Asset(name=asset.name, type=asset.type, description=asset.description, project_id=project_id)
     db.add(new_asset)
     db.commit()
     db.refresh(new_asset)

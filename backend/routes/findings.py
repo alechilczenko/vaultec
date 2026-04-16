@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from typing import List, Annotated, Optional
 from database.db import get_db
-from database.crud import finding_service, asset_service, project_service
+from database.crud import finding_service
 import schemas
 from schemas.common import SafeIntID
 from dependencies.project import validate_project
@@ -32,7 +32,6 @@ def get_finding_detail(project_id: SafeIntID, id: SafeIntID, db: Session = Depen
 
 @router.post("/create", response_model=schemas.VulnerabilityFullRead)
 def create_vulnerabilities(project_id: SafeIntID, vulnerability: schemas.VulnerabilityCreate, db: Session = Depends(get_db)):
-    asset_service.get_asset_by_name(db, vulnerability.asset_name, project_id)
     return finding_service.process_vulnerability_entry(db, vulnerability, project_id)
 
 @router.post("/import")

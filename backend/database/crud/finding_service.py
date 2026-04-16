@@ -139,7 +139,14 @@ def process_vulnerability_entry(db: Session, vuln_data: schemas.VulnerabilityCre
     Orchestrates the creation of a definition and its associated finding.
     Logic shared between single and bulk imports.
     """
-    target_asset = asset_service.get_asset_by_name(db, vuln_data.asset_name, project_id)
+    target_asset = asset_service.get_asset_by_name_silent(db, vuln_data.asset_name, project_id)
+
+    if not target_asset:
+        logger.error(f"Asset lookup failed: '{vuln_data.asset_name}' not found.")
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Asset '{vuln_data.asset_name}' not found. Please register it first."
+    )
 
     # 1. Prepare Definition Data
     def_data = vuln_data.model_dump(exclude={
