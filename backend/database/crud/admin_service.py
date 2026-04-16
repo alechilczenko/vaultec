@@ -5,110 +5,78 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 """
 
 from sqlalchemy.orm import Session
-from sqlalchemy import text
 from fastapi import HTTPException, status
 from loguru import logger
 import database.models as models
 
-def execute_truncate(db: Session, table_name: str):
-    """
-    Executes a safe TRUNCATE by validating the table name against a whitelist.
-    """
-    # Defined allowed tables to prevent string manipulation and unauthorized access
-    ALLOWED_TABLES = {"assets", "vulnerability_definitions", "vulnerabilities", "notes"}
-    if table_name not in ALLOWED_TABLES:
-        logger.error(f"TRUNCATE attempt on unauthorized or non-existent table: {table_name}")
-        raise HTTPException(status_code=400, detail="Operation not allowed for this table.")
+def clear_project_findings(db: Session, project_id: int):
+    """Deletes all findings for a specific project."""
     try:
-        query = text(f"TRUNCATE TABLE {table_name} RESTART IDENTITY CASCADE;")
-        db.execute(query)
+        db.query(models.Vulnerability).filter(models.Vulnerability.project_id == project_id).delete()
         db.commit()
+        logger.info(f"All findings cleared for project {project_id}")
     except Exception as e:
         db.rollback()
-        logger.error(f"Error truncating table {table_name}: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal error while clearing the table.")
+        logger.error(f"Error clearing findings for project {project_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error clearing project findings.")
 
-def clear_all_findings(db: Session):
+def clear_project_assets(db: Session, project_id: int):
+    """Deletes all assets for a specific project. Checks for active findings first."""
+    has_findings = db.query(models.Vulnerability).filter(models.Vulnerability.project_id == project_id).first()
+    if has_findings:
+        raise HTTPException(
+            status_code=400, 
+            detail="Cannot clear assets. There are findings still linked to them in this project.")
+    try:
+        db.query(models.Asset).filter(models.Asset.project_id == project_id).delete()
+        db.commit()
+        logger.info(f"All assets cleared for project {project_id}")
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Error clearing project assets.")
+
+def clear_project_notes(db: Session, project_id: int):
     """
-    Deletes all findings (vulnerabilities) from the database.
+    Removes all notes linked to a specific project.
     """
     try:
-        execute_truncate(db, "vulnerabilities")
-        logger.info("All findings have been cleared from the database")
+        db.query(models.Note).filter(models.Note.project_id == project_id).delete()
+        db.commit()
+        logger.info(f"All notes cleared for Project {project_id}")
     except Exception as e:
         db.rollback()
-        logger.error(f"Could not clear findings: {str(e)}")
+        logger.error(f"Failed to clear notes for Project {project_id}: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to clear findings. Please check server logs")
+            status_code=500, 
+            detail="Internal Server Error: Could not clear project notes."
+        )
 
-def clear_all_assets(db: Session):
+def nuclear_project_reset(db: Session, project_id: int):
+    """Nuclear option: Clears everything (Findings, Notes, Assets) for ONE project."""
+    try:
+        db.query(models.Vulnerability).filter(models.Vulnerability.project_id == project_id).delete()
+        db.query(models.Note).filter(models.Note.project_id == project_id).delete()
+        db.query(models.Asset).filter(models.Asset.project_id == project_id).delete()
+        db.commit()
+        logger.warning(f"Nuclear reset performed for project {project_id}")
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Nuclear reset failed for project {project_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Critical error during project reset.")
+
+def clear_global_catalog(db: Session):
     """
-    Deletes all assets. Requires no existing findings to maintain integrity.
+    Removes all definitions from the global catalog.
+    This will fail if ANY project has a finding linked to a definition.
     """
-    # Check for dependent findings before attempting deletion
-    if db.query(models.Vulnerability).count() > 0:
-        logger.warning("Integrity check failed for asset deletion")
+    try:
+        db.query(models.VulnerabilityDefinition).delete()
+        db.commit()
+        logger.warning("Global vulnerability catalog has been cleared.")
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Catalog clear failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot delete assets. There are findings still linked to them.")
-    try:
-        execute_truncate(db, "assets")
-        logger.info("All assets have been cleared")
-    except Exception as e:
-        db.rollback()
-        logger.info(f"Could not clear assets: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to clear assets due to an internal error.")
-
-def clear_all_catalog(db: Session):
-    """
-    Deletes the entire vulnerability catalog. Requires no active findings.
-    """
-    # Check if catalog is being used
-    if db.query(models.Vulnerability).count() > 0:
-        logger.warning("Integrity check failed for catalog deletion")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot clear catalog. Definitions are referenced by existing findings.")
-    try:
-        execute_truncate(db, "vulnerability_definitions")
-        logger.info("Catalog has been cleared")
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Could not clear catalog: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to clear catalog. Integrity constraints might be active.")
-
-def clear_all_notes(db: Session):
-    """
-    Deletes all notes from the database.
-    """
-    try:
-        execute_truncate(db, "notes")
-        logger.info("All notes have been cleared")
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Could not clear notes: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to clear notes due to an internal error.")
-
-def clear_everything(db: Session):
-    """
-    Nuclear option: Deletes all data across all tables in the correct order 
-    to respect foreign key constraints.
-    """
-    try:
-        tables = ["vulnerabilities", "assets", "vulnerability_definitions", "notes"]
-        for table in tables:
-            execute_truncate(db, table)
-        logger.info("Nuclear reset successful. All tables cleared")
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Could not perform nuclear reset: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to reset the database due to an internal error.")
+            detail="Catalog is in use. Delete all findings across all projects first."
+        )
