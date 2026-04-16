@@ -19,9 +19,8 @@ router = APIRouter(
 @router.get("/", response_model=schemas.ProjectList)
 def list_projects(
     db: Session = Depends(get_db), 
-    skip: int = Query(0, ge=0), 
-    limit: int = Query(100, ge=1, le=500)
-):
+    skip: int = Query(0, ge=0, le=10000),
+    limit: int = Query(100, ge=1, le=500)):
     projects_data = project_service.get_projects(db, skip=skip, limit=limit)
     return {"projects": projects_data}
 
@@ -37,8 +36,7 @@ def get_project(id: SafeIntID, db: Session = Depends(get_db)):
 def update_project(
     id: SafeIntID, 
     data: schemas.ProjectCreate, 
-    db: Session = Depends(get_db)
-):
+    db: Session = Depends(get_db)):
     return project_service.update_project(db, id, data)
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -10,6 +10,7 @@ from database.db import get_db
 from database.crud import catalog_service
 import schemas
 from schemas.common import SafeIntID
+from dependencies.clean_query import get_clean_query
 
 router = APIRouter(
     prefix="/catalog",
@@ -17,11 +18,11 @@ router = APIRouter(
 )
 
 @router.get("/", response_model=schemas.CatalogRead)
-def get_vulnerability_catalog(db: Session = Depends(get_db), skip: int = Query(0, ge=0), limit: int = Query(100, ge=1, le=500)):
+def get_vulnerability_catalog(db: Session = Depends(get_db), skip: int = Query(0, ge=0, le=10000), limit: int = Query(100, ge=1, le=500)):
     return {"definitions": catalog_service.get_all_definitions(db, skip=skip, limit=limit)}
 
 @router.get("/search", response_model=schemas.CatalogRead)
-def search_definitions(q: str = Query(..., min_length=2, max_length=50), db: Session = Depends(get_db)):
+def search_definitions(q: str = Depends(get_clean_query), db: Session = Depends(get_db)):
     return {"definitions": catalog_service.search_definitions(db,q)}
 
 @router.post("/create", response_model=schemas.VulnerabilityDefinitionRead, status_code=201)

@@ -19,7 +19,7 @@ router = APIRouter(
     dependencies=[Depends(validate_project)]
 )
 @router.get("", response_model=schemas.AssetListRead)
-def list_assets(project_id: SafeIntID, db: Session = Depends(get_db), skip: int = Query(0, ge=0), limit: int = Query(100, ge=1, le=500)):
+def list_assets(project_id: SafeIntID, db: Session = Depends(get_db), skip: int = Query(0, ge=0, le=10000), limit: int = Query(100, ge=1, le=500)):
     return {"assets": asset_service.get_all_assets(db, project_id, skip=skip, limit=limit)}
 
 @router.post("/create", response_model=schemas.AssetRead)

@@ -12,6 +12,7 @@ from database.crud import finding_service
 import schemas
 from schemas.common import SafeIntID
 from dependencies.project import validate_project
+from dependencies.clean_query import get_clean_query
 
 router = APIRouter(
     prefix="/projects/{project_id}/findings",
@@ -23,7 +24,12 @@ def get_vulnerability_stats(project_id: SafeIntID, db: Session = Depends(get_db)
     return finding_service.get_severity_stats(db, project_id)
 
 @router.get("/by-asset", response_model=schemas.VulnerabilityJoinedRead)
-def get_vulnerabilities_by_asset(project_id: SafeIntID, skip: Annotated[int, Query(ge=0, description="Records to skip")] = 0, limit: Annotated[int, Query(ge=1, le=100, description="Records per page")] = 50, q: Annotated[Optional[str], Query(min_length=1, max_length=100)] = None, db: Session = Depends(get_db)):
+def get_vulnerabilities_by_asset(
+    project_id: SafeIntID, 
+    skip: Annotated[int, Query(ge=0, le=10000, description="Records to skip")] = 0, 
+    limit: Annotated[int, Query(ge=1, le=100, description="Records per page")] = 50, 
+    q: Annotated[Optional[str], Depends(get_clean_query)] = None, 
+    db: Session = Depends(get_db)):
     return {"findings": finding_service.get_vulnerabilities_joined(db, project_id, skip, limit, q)}
 
 @router.get("/{id}", response_model=schemas.VulnerabilityFullRead)
