@@ -4,6 +4,7 @@ Copyright (C) 2026 Alejandro Chilczenko
 Licensed under GNU GPLv3 - See the LICENSE file for details
 """
 
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
@@ -36,6 +37,37 @@ def get_all_assets(db: Session, project_id: int, skip: int = 0, limit: int = 100
     Retrieves all assets.
     """
     return db.query(models.Asset).filter(models.Asset.project_id == project_id).offset(skip).limit(limit).all()
+
+def get_asset_type_stats(db: Session, project_id: int):
+    """
+    Retrieves the total count of unique active assets categorized by type
+    (URLs, IPs, Hosts) that have open vulnerabilities within a project.
+    """
+    stats = db.query(
+        func.count(func.distinct(models.Asset.id)).filter(
+            models.Asset.type == "URL",
+            models.Vulnerability.status == "open"
+        ).label("urls"),
+        func.count(func.distinct(models.Asset.id)).filter(
+            models.Asset.type == "IP",
+            models.Vulnerability.status == "open"
+        ).label("ips"),
+        func.count(func.distinct(models.Asset.id)).filter(
+            models.Asset.type == "Host",
+            models.Vulnerability.status == "open"
+        ).label("hosts")
+    ).join(
+        models.Vulnerability, 
+        models.Vulnerability.asset_id == models.Asset.id
+    ).filter(
+        models.Vulnerability.project_id == project_id
+    ).first()
+
+    return {
+        "urls": stats.urls if stats else 0,
+        "ips": stats.ips if stats else 0,
+        "hosts": stats.hosts if stats else 0
+    }
 
 def create_asset(db: Session, asset: schemas.AssetCreate, project_id: int):
     """

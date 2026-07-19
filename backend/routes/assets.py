@@ -12,6 +12,7 @@ from database.crud import asset_service
 import schemas.asset as schemas
 from schemas.common import SafeIntID
 from dependencies.project import validate_project
+from routes.assets import asset_service
 
 router = APIRouter(
     prefix="/projects/{project_id}/assets",
@@ -21,6 +22,10 @@ router = APIRouter(
 @router.get("", response_model=schemas.AssetListRead)
 def list_assets(project_id: SafeIntID, db: Session = Depends(get_db), skip: int = Query(0, ge=0, le=10000), limit: int = Query(100, ge=1, le=500)):
     return {"assets": asset_service.get_all_assets(db, project_id, skip=skip, limit=limit)}
+
+@router.get("/stats")
+def get_finding_asset_stats(project_id: SafeIntID, db: Session = Depends(get_db)):
+    return asset_service.get_asset_type_stats(db, project_id)
 
 @router.post("/create", response_model=schemas.AssetRead)
 def create_asset(project_id: SafeIntID, asset: schemas.AssetCreate, db: Session = Depends(get_db)):
