@@ -26,3 +26,18 @@ def authenticate_user(db: Session, username: str, password: str):
     
     logger.info(f"User authenticated successfully: '{username}'")
     return user
+
+def verify_user_token(current_user: models.User):
+    """
+    Verifies that the provided user object from the token dependency is valid and active.
+    """
+    if not current_user.is_active:
+        logger.warning(f"Inactive user attempt to verify token: '{current_user.username}'")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Inactive user account",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    logger.debug(f"Token verified for active user: '{current_user.username}'")
+    return current_user
