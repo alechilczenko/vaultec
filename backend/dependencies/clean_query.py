@@ -6,10 +6,17 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 
 import re
 from fastapi import HTTPException, Query
-from typing import Annotated
+from typing import Annotated, Optional
 
-def get_clean_query(q: Annotated[str, Query(min_length=2, max_length=100)]):
-
+def get_clean_query(q: Annotated[
+        Optional[str], 
+        Query(
+            min_length=2, 
+            max_length=100, 
+            description="Optional search query filter"
+        )
+    ] = None
+):
     if q is None:
         return None
 
