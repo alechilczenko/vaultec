@@ -18,7 +18,6 @@ def update_finding(db: Session, db_obj: models.Vulnerability, update_data: dict)
     """
     finding_id = db_obj.id
     finding_title = db_obj.definition.title if db_obj.definition else "Unknown Title"
-    project_id = db_obj.project_id
 
     try:
         for key, value in update_data.items():
@@ -26,7 +25,7 @@ def update_finding(db: Session, db_obj: models.Vulnerability, update_data: dict)
         
         db.commit()
         db.refresh(db_obj)
-        logger.info(f"Finding updated: '{finding_title}' (ID: {finding_id}) in Project {project_id}")
+        logger.info(f"Finding updated: '{finding_title}' (ID: {finding_id})")
         return db_obj
     except Exception as e:
         db.rollback()
@@ -43,12 +42,11 @@ def delete_finding(db: Session, db_obj: models.Vulnerability):
     finding_id = db_obj.id
     vuln_title = db_obj.definition.title if db_obj.definition else "Unknown Title"
     asset_name = db_obj.asset.name if db_obj.asset else "Unknown Asset"
-    project_id = db_obj.project_id
 
     try:
         db.delete(db_obj)
         db.commit()
-        logger.info(f"Finding deleted: '{vuln_title}' on Asset '{asset_name}' (ID: {finding_id}) from Project {project_id}")
+        logger.info(f"Finding deleted: '{vuln_title}' on Asset '{asset_name}' (ID: {finding_id})")
         return True 
     except Exception as e:
         db.rollback()
@@ -58,7 +56,10 @@ def delete_finding(db: Session, db_obj: models.Vulnerability):
             detail=f"Database Error: Could not delete finding ID {finding_id}. Transaction rolled back."
         )
     
-def get_severity_stats(db: Session, project_id: int):
+def get_severity_stats(db: Session):
+    """
+    Calculates statistics based on severity for the active workspace.
+    """
     priority_order = ["critical", "high", "medium", "low", "informative"]
 
     stats = db.query(
@@ -68,8 +69,7 @@ def get_severity_stats(db: Session, project_id: int):
         models.Vulnerability, 
         models.Vulnerability.definition_id == models.VulnerabilityDefinition.id
     ).filter(
-        models.Vulnerability.status == "open",
-        models.Vulnerability.project_id == project_id
+        models.Vulnerability.status == "open"
     ).group_by(
         models.VulnerabilityDefinition.severity
     ).all()
@@ -79,21 +79,22 @@ def get_severity_stats(db: Session, project_id: int):
 
     return ordered_stats
 
-def get_finding_by_id(db: Session, finding_id: int, project_id: int):
-
+def get_finding_by_id(db: Session, finding_id: int):
+    """
+    Retrieves a finding by its ID in the active workspace.
+    """
     finding = db.query(models.Vulnerability).filter(
-        models.Vulnerability.id == finding_id,
-        models.Vulnerability.project_id == project_id
+        models.Vulnerability.id == finding_id
     ).first()
 
     if not finding:
         raise HTTPException(
             status_code=404,
-            detail=f"Finding Error: Vulnerability instance with ID {finding_id} not found in this project."
+            detail=f"Finding Error: Vulnerability instance with ID {finding_id} not found."
         )
     return finding
 
-def get_or_create_finding(db: Session, defn: models.VulnerabilityDefinition, asset: models.Asset, vulnerability_data: dict, project_id:int):
+def get_or_create_finding(db: Session, defn: models.VulnerabilityDefinition, asset: models.Asset, vulnerability_data: dict):
     """
     Checks if an open finding already exists for the given asset and definition.
     If it exists, raises a 400 error. Otherwise, creates a new one.
@@ -102,12 +103,11 @@ def get_or_create_finding(db: Session, defn: models.VulnerabilityDefinition, ass
     # 1. Look for an existing open finding
     existing_finding = db.query(models.Vulnerability).filter(
         models.Vulnerability.definition_id == defn.id,
-        models.Vulnerability.asset_id == asset.id,
-        models.Vulnerability.project_id == project_id
+        models.Vulnerability.asset_id == asset.id
     ).first()
 
     if existing_finding:
-        logger.warning(f"Duplicate finding blocked: '{defn.title}' already active on '{asset.name}' in Project {project_id}")
+        logger.warning(f"Duplicate finding blocked: '{defn.title}' already active on '{asset.name}'")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Duplicate Finding: The asset '{asset.name}' already has an active record for '{defn.title}'. Duplicate prevented."
@@ -117,14 +117,13 @@ def get_or_create_finding(db: Session, defn: models.VulnerabilityDefinition, ass
     new_finding = models.Vulnerability(
         definition_id=defn.id,
         asset_id=asset.id,
-        project_id=project_id,
         **vulnerability_data
     )
     try:
         db.add(new_finding)
         db.commit()
         db.refresh(new_finding)
-        logger.info(f"New finding created: '{defn.title}' on '{asset.name}' in Project {project_id}")
+        logger.info(f"New finding created: '{defn.title}' on '{asset.name}'")
         return new_finding
     
     except Exception as e:
@@ -132,21 +131,22 @@ def get_or_create_finding(db: Session, defn: models.VulnerabilityDefinition, ass
         logger.error(f"Failed to persist finding for Asset '{asset.name}': {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Database Error: Failed to persist the new finding. Transaction rolled back.")
+            detail="Database Error: Failed to persist the new finding. Transaction rolled back."
+        )
 
-def process_vulnerability_entry(db: Session, vuln_data: schemas.VulnerabilityCreate, project_id:int):
+def process_vulnerability_entry(db: Session, vuln_data: schemas.VulnerabilityCreate):
     """
     Orchestrates the creation of a definition and its associated finding.
     Logic shared between single and bulk imports.
     """
-    target_asset = asset_service.get_asset_by_name_silent(db, vuln_data.asset_name, project_id)
+    target_asset = asset_service.get_asset_by_name_silent(db, vuln_data.asset_name)
 
     if not target_asset:
         logger.error(f"Asset lookup failed: '{vuln_data.asset_name}' not found.")
         raise HTTPException(
             status_code=404, 
             detail=f"Asset '{vuln_data.asset_name}' not found. Please register it first."
-    )
+        )
 
     # 1. Prepare Definition Data
     def_data = vuln_data.model_dump(exclude={
@@ -168,9 +168,12 @@ def process_vulnerability_entry(db: Session, vuln_data: schemas.VulnerabilityCre
         "notes": vuln_data.notes,
     }
     # 4. Create Finding
-    return get_or_create_finding(db, target_defn, target_asset, finding_info, project_id)
+    return get_or_create_finding(db, target_defn, target_asset, finding_info)
 
-def get_vulnerabilities_joined(db: Session, project_id: int, skip: int = 0, limit: int = 100, search_query: str = None):
+def get_vulnerabilities_joined(db: Session, skip: int = 0, limit: int = 100, search_query: str = None):
+    """
+    Retrieves vulnerabilities joined with assets and definitions for the active workspace.
+    """
     query = db.query(
         models.Vulnerability.created_at,
         models.Asset.name.label("asset_name"),
@@ -179,8 +182,7 @@ def get_vulnerabilities_joined(db: Session, project_id: int, skip: int = 0, limi
         models.Vulnerability.status,
         models.Vulnerability.id.label("instance_id")
     ).join(models.Asset, models.Vulnerability.asset_id == models.Asset.id)\
-     .join(models.VulnerabilityDefinition, models.Vulnerability.definition_id == models.VulnerabilityDefinition.id)\
-     .filter(models.Vulnerability.project_id == project_id)
+     .join(models.VulnerabilityDefinition, models.Vulnerability.definition_id == models.VulnerabilityDefinition.id)
     
     if search_query:
         query = query.filter(
@@ -192,13 +194,16 @@ def get_vulnerabilities_joined(db: Session, project_id: int, skip: int = 0, limi
     return query.offset(skip).limit(limit).all()
     
 
-def bulk_process_vulnerabilities(db: Session, import_data: schemas.VulnerabilityBulkImport, project_id: int):
+def bulk_process_vulnerabilities(db: Session, import_data: schemas.VulnerabilityBulkImport):
+    """
+    Processes a bulk array of vulnerabilities for the active workspace.
+    """
     processed_count = 0
     errors = []
 
     for vuln in import_data.vulnerabilities:
         try:
-            process_vulnerability_entry(db, vuln, project_id)
+            process_vulnerability_entry(db, vuln)
             processed_count += 1
         
         except HTTPException as he:
@@ -222,11 +227,10 @@ def bulk_process_vulnerabilities(db: Session, import_data: schemas.Vulnerability
             })
             continue
 
-    logger.info(f"Bulk process finished for Project {project_id}: {processed_count} imported, {len(errors)} failed")
+    logger.info(f"Bulk process finished: {processed_count} imported, {len(errors)} failed")
     
     return {
         "message": "Bulk processing completed.",
-        "project_id": project_id,
         "summary": {
             "imported": processed_count,
             "failed": len(errors),

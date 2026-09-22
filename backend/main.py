@@ -12,7 +12,7 @@ from database.models import Base
 from auth.setup import setup_admin_user
 from auth.utils import get_current_user
 from config.logger_config import setup_app_logging
-from routes import catalog, findings, notes, auth, assets, admin, projects
+from routes import catalog, findings, notes, auth, assets, admin, workspace
 from loguru import logger
 from inspect import cleandoc
 import os
@@ -36,9 +36,10 @@ app = FastAPI(
     title="API",
     description=cleandoc("""
         ## Vulnerability Management Platform
-        Standardized API for managing assets, catalog definitions, and security findings.
+        Standardized API for managing active audit workspace, assets, catalog definitions, and security findings.
         
         ### Features:
+        * **Workspace**: Manage active audit context.
         * **Assets**: Manage infrastructure inventory.
         * **Catalog**: Centralized vulnerability definitions.
         * **Findings**: Track and remediate security issues.
@@ -49,20 +50,22 @@ app = FastAPI(
         "url": "https://github.com/alechilczenko",
     },
 )
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], 
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],)
+    allow_headers=["*"],
+)
 
 # Authentication routes (unprotected)
 app.include_router(auth.router)
 
 # Protected routes
-app.include_router(projects.router, dependencies=[Depends(get_current_user)])
-app.include_router(catalog.router,dependencies=[Depends(get_current_user)])
-app.include_router(findings.router,dependencies=[Depends(get_current_user)])
-app.include_router(notes.router,dependencies=[Depends(get_current_user)])
-app.include_router(assets.router,dependencies=[Depends(get_current_user)])
-app.include_router(admin.router,dependencies=[Depends(get_current_user)])
+app.include_router(workspace.router, dependencies=[Depends(get_current_user)])
+app.include_router(catalog.router, dependencies=[Depends(get_current_user)])
+app.include_router(findings.router, dependencies=[Depends(get_current_user)])
+app.include_router(notes.router, dependencies=[Depends(get_current_user)])
+app.include_router(assets.router, dependencies=[Depends(get_current_user)])
+app.include_router(admin.router, dependencies=[Depends(get_current_user)])

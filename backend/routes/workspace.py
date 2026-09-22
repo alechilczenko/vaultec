@@ -4,42 +4,28 @@ Copyright (C) 2026 Alejandro Chilczenko
 Licensed under GNU GPLv3 - See the LICENSE file for details
 """
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 from database.db import get_db
-from database.crud import project_service
+from database.crud import workspace_service
 import schemas
-from schemas.common import SafeIntID
 
 router = APIRouter(
-    prefix="/projects",
-    tags=["Projects"]
+    prefix="/workspace",
+    tags=["Workspace"]
 )
 
-@router.get("/", response_model=schemas.ProjectList)
-def list_projects(
-    db: Session = Depends(get_db), 
-    skip: int = Query(0, ge=0, le=10000),
-    limit: int = Query(100, ge=1, le=500)):
-    projects_data = project_service.get_projects(db, skip=skip, limit=limit)
-    return {"projects": projects_data}
+@router.get("", response_model=schemas.WorkspaceRead)
+def get_workspace_status(db: Session = Depends(get_db)):
+    """
+    Retrieves the current active workspace status and audit metadata.
+    """
+    return workspace_service.get_active_workspace(db)
 
-@router.post("/create", response_model=schemas.ProjectRead, status_code=status.HTTP_201_CREATED)
-def create_project(data: schemas.ProjectCreate, db: Session = Depends(get_db)):
-    return project_service.create_project(db, data)
 
-@router.get("/{id}", response_model=schemas.ProjectRead)
-def get_project(id: SafeIntID, db: Session = Depends(get_db)):
-    return project_service.get_project_by_id(db, id)
-
-@router.patch("/{id}", response_model=schemas.ProjectRead)
-def update_project(
-    id: SafeIntID, 
-    data: schemas.ProjectCreate, 
-    db: Session = Depends(get_db)):
-    return project_service.update_project(db, id, data)
-
-@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_project(id: SafeIntID, db: Session = Depends(get_db)):
-    project_service.delete_project(db, id)
-    return None
+@router.post("/setup", response_model=schemas.WorkspaceRead, status_code=status.HTTP_200_OK)
+def setup_workspace(data: schemas.WorkspaceSetup, db: Session = Depends(get_db)):
+    """
+    Initializes or updates the client context for the active audit workspace.
+    """
+    return workspace_service.setup_workspace(db, data)

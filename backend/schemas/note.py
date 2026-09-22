@@ -6,7 +6,7 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 
 from typing import Optional, Any
 import re
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 from .common import SafeIntID
 
 
@@ -44,8 +44,18 @@ class NoteRead(BaseModel):
 class NoteUpdate(BaseModel):
     model_config = ConfigDict(from_attributes=True, extra="forbid")
 
-    title: Optional[str] = Field(None, min_length=1, max_length=100)
-    content: Optional[str] = Field(None, max_length=5000)
+    title: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    content: Optional[str] = Field(default=None, min_length=1, max_length=5000)
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_explicit_nulls(cls, data: Any) -> Any:
+        """Prevents clients from sending explicit null values to bypass NOT NULL constraints."""
+        if isinstance(data, dict):
+            for field in ["title", "content"]:
+                if field in data and data[field] is None:
+                    raise ValueError(f"Field '{field}' cannot be null.")
+        return data
 
     @field_validator("title", mode="before")
     @classmethod

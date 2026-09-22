@@ -12,36 +12,30 @@ from loguru import logger
 import database.models as models
 import schemas
 
-def get_asset_by_id(db: Session, asset_id: int, project_id: int):
+def get_asset_by_id(db: Session, asset_id: int):
     """
-    Retrieves an asset by its internal ID.
+    Retrieves an asset by its internal ID in the active workspace.
     Raises a 404 error if the ID does not exist in the database.
     """
-    db_asset = db.query(models.Asset).filter(
-        models.Asset.id == asset_id, 
-        models.Asset.project_id == project_id
-    ).first()
+    db_asset = db.query(models.Asset).filter(models.Asset.id == asset_id).first()
 
     if not db_asset:
-        raise HTTPException(status_code=404, detail="Asset not found in this project.")
+        raise HTTPException(status_code=404, detail="Asset not found in active workspace.")
     return db_asset
 
-def get_asset_by_name_silent(db: Session, name: str, project_id: int):
-    return db.query(models.Asset).filter(
-        models.Asset.name == name, 
-        models.Asset.project_id == project_id
-    ).first()
+def get_asset_by_name_silent(db: Session, name: str):
+    """Retrieves an asset by its name without throwing exceptions if not found."""
+    return db.query(models.Asset).filter(models.Asset.name == name).first()
 
-def get_all_assets(db: Session, project_id: int, skip: int = 0, limit: int = 100):
-    """
-    Retrieves all assets.
-    """
-    return db.query(models.Asset).filter(models.Asset.project_id == project_id).offset(skip).limit(limit).all()
 
-def get_asset_type_stats(db: Session, project_id: int):
+def get_all_assets(db: Session, skip: int = 0, limit: int = 100):
+    """Retrieves all assets in the active workspace with pagination."""
+    return db.query(models.Asset).offset(skip).limit(limit).all()
+
+def get_asset_type_stats(db: Session):
     """
     Retrieves the total count of unique active assets categorized by type
-    (URLs, IPs, Hosts) that have open vulnerabilities within a project.
+    (URLs, IPs, Hosts) that have open vulnerabilities in the active workspace.
     """
     stats = db.query(
         func.count(func.distinct(models.Asset.id)).filter(
@@ -59,8 +53,6 @@ def get_asset_type_stats(db: Session, project_id: int):
     ).join(
         models.Vulnerability, 
         models.Vulnerability.asset_id == models.Asset.id
-    ).filter(
-        models.Vulnerability.project_id == project_id
     ).first()
 
     return {
@@ -69,45 +61,44 @@ def get_asset_type_stats(db: Session, project_id: int):
         "hosts": stats.hosts if stats else 0
     }
 
-def create_asset(db: Session, asset: schemas.AssetCreate, project_id: int):
-    """
-    Creates a new asset after verifying the name is unique.
-    """
-    existing = get_asset_by_name_silent(db, asset.name, project_id)
+def create_asset(db: Session, asset: schemas.AssetCreate):
+    """Creates a new asset after verifying the name is unique within the active workspace."""
+    existing = get_asset_by_name_silent(db, asset.name)
     if existing:
         raise HTTPException(
             status_code=400, 
-            detail=f"Asset '{asset.name}' already exists in this project."
+            detail=f"Asset '{asset.name}' already exists in active workspace."
         )
     
-    new_asset = models.Asset(name=asset.name, type=asset.type, description=asset.description, project_id=project_id)
+    new_asset = models.Asset(
+        name=asset.name, 
+        type=asset.type
+    )
     db.add(new_asset)
     db.commit()
     db.refresh(new_asset)
     logger.info(f"Asset created: {asset.name} (ID: {new_asset.id})")
     return new_asset
 
+
 def update_asset(db: Session, db_asset: models.Asset, update_data: dict):
-    """
-    Updates an asset, ensuring the new name does not conflict with existing ones.
-    """
+    """Updates an asset, ensuring the new name does not conflict with existing ones."""
     original_name = db_asset.name
 
     if "name" in update_data:
-        # Check if another asset in the same project already uses the new name
         new_name = update_data["name"]
         existing_conflict = db.query(models.Asset).filter(
             models.Asset.name == new_name,
-            models.Asset.project_id == db_asset.project_id,
             models.Asset.id != db_asset.id
         ).first()
 
         if existing_conflict:
-            logger.warning(f"Update failed: Name '{new_name}' already exists in Project ID {db_asset.project_id}")
+            logger.warning(f"Update failed: Name '{new_name}' already exists in active workspace")
             raise HTTPException(
                 status_code=400, 
-                detail=f"The name '{new_name}' is already assigned to another asset in this project."
+                detail=f"The name '{new_name}' is already assigned to another asset in this workspace."
             )
+
     for key, value in update_data.items():
         setattr(db_asset, key, value)
 
@@ -116,19 +107,23 @@ def update_asset(db: Session, db_asset: models.Asset, update_data: dict):
     logger.info(f"Asset '{original_name}' (ID: {db_asset.id}) updated to '{db_asset.name}'")
     return db_asset
 
-def import_assets(db: Session, assets: schemas.AssetBulkImport, project_id: int):
-    """
-    Bulk imports assets, skipping those with existing names.
-    """
+
+def import_assets(db: Session, assets: schemas.AssetBulkImport):
+    """Bulk imports assets into the active workspace, skipping existing names."""
     added_names = []
     skipped_names = []
     
-    existing_names = {row[0] for row in db.query(models.Asset.name).filter(models.Asset.project_id == project_id).all()}
+    existing_names = {row[0] for row in db.query(models.Asset.name).all()}
     
     new_assets_objs = []
     for asset_data in assets.assets:
         if asset_data.name not in existing_names:
-            new_assets_objs.append(models.Asset(name=asset_data.name,type=asset_data.type,description=asset_data.description,project_id=project_id))
+            new_assets_objs.append(
+                models.Asset(
+                    name=asset_data.name,
+                    type=asset_data.type
+                )
+            )
             existing_names.add(asset_data.name)
             added_names.append(asset_data.name)
         else:
@@ -138,14 +133,14 @@ def import_assets(db: Session, assets: schemas.AssetBulkImport, project_id: int)
         try:
             db.add_all(new_assets_objs)
             db.commit()
-            logger.info(f"Bulk import successful for Project ID {project_id}: {len(added_names)} assets added")
+            logger.info(f"Bulk import successful: {len(added_names)} assets added")
         except Exception as e:
             db.rollback()
-            logger.error(f"Bulk asset import failed for Project ID {project_id}: {str(e)}")
+            logger.error(f"Bulk asset import failed: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
     return {
         "message": "Import completed",
-        "project_id": project_id,
         "summary": {
             "added_count": len(added_names),
             "skipped_count": len(skipped_names)
@@ -157,9 +152,7 @@ def import_assets(db: Session, assets: schemas.AssetBulkImport, project_id: int)
     }
 
 def delete_asset(db: Session, db_asset: models.Asset):
-    """
-    Deletes an asset and handles potential integrity conflicts.
-    """
+    """Deletes an asset and handles potential integrity conflicts."""
     asset_name = db_asset.name
     try:
         db.delete(db_asset)

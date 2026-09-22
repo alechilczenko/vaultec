@@ -9,60 +9,33 @@ from fastapi import HTTPException, status
 from loguru import logger
 import database.models as models
 
-def clear_project_findings(db: Session, project_id: int):
-    """Deletes all findings for a specific project."""
-    try:
-        db.query(models.Vulnerability).filter(models.Vulnerability.project_id == project_id).delete()
-        db.commit()
-        logger.info(f"All findings cleared for project {project_id}")
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Error clearing findings for project {project_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail="Error clearing project findings.")
-
-def clear_project_assets(db: Session, project_id: int):
-    """Deletes all assets for a specific project. Checks for active findings first."""
-    has_findings = db.query(models.Vulnerability).filter(models.Vulnerability.project_id == project_id).first()
-    if has_findings:
-        raise HTTPException(
-            status_code=400, 
-            detail="Cannot clear assets. There are findings still linked to them in this project.")
-    try:
-        db.query(models.Asset).filter(models.Asset.project_id == project_id).delete()
-        db.commit()
-        logger.info(f"All assets cleared for project {project_id}")
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail="Error clearing project assets.")
-
-def clear_project_notes(db: Session, project_id: int):
+def reset_active_workspace(db: Session):
     """
-    Removes all notes linked to a specific project.
+    Clears all active audit data (findings, notes, assets) and resets 
+    the workspace state to empty. Preserves the global catalog.
     """
     try:
-        db.query(models.Note).filter(models.Note.project_id == project_id).delete()
+        # 1. Clear active audit data
+        db.query(models.Vulnerability).delete()
+        db.query(models.Note).delete()
+        db.query(models.Asset).delete()
+
+        # 2. Reset workspace state
+        workspace = db.query(models.Workspace).filter(models.Workspace.id == 1).first()
+        if workspace:
+            workspace.name = None
+            workspace.client_name = None
+            workspace.status = "empty"
+
         db.commit()
-        logger.info(f"All notes cleared for Project {project_id}")
+        logger.warning("Active workspace cleared and reset to empty state.")
     except Exception as e:
         db.rollback()
-        logger.error(f"Failed to clear notes for Project {project_id}: {str(e)}")
+        logger.error(f"Critical error during workspace reset: {str(e)}")
         raise HTTPException(
-            status_code=500, 
-            detail="Internal Server Error: Could not clear project notes."
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Critical error while resetting active workspace."
         )
-
-def nuclear_project_reset(db: Session, project_id: int):
-    """Nuclear option: Clears everything (Findings, Notes, Assets) for ONE project."""
-    try:
-        db.query(models.Vulnerability).filter(models.Vulnerability.project_id == project_id).delete()
-        db.query(models.Note).filter(models.Note.project_id == project_id).delete()
-        db.query(models.Asset).filter(models.Asset.project_id == project_id).delete()
-        db.commit()
-        logger.warning(f"Nuclear reset performed for project {project_id}")
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Nuclear reset failed for project {project_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail="Critical error during project reset.")
 
 def clear_global_catalog(db: Session):
     """
