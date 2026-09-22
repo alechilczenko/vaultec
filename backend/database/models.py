@@ -4,7 +4,7 @@ Copyright (C) 2026 Alejandro Chilczenko
 Licensed under GNU GPLv3 - See the LICENSE file for details
 """
 
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, ForeignKey, Text, func, ARRAY, UniqueConstraint
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, ForeignKey, Text, func, ARRAY
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from database.db import Base
@@ -16,35 +16,28 @@ class User(Base):
     hashed_password = Column(String)
     is_active = Column(Boolean, default=True)
 
-class Project(Base):
-    __tablename__ = "projects"
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(100), unique=True, index=True, nullable=False)
-    client_name = Column(String(100), nullable=False)
+class Workspace(Base):
+    """
+    Represents the single active audit workspace context.
+    Only one row (id=1) should exist or be active at any given time.
+    """
+    __tablename__ = "workspace"
+    id = Column(Integer, primary_key=True, default=1)
+    name = Column(String(100), nullable=True)
+    client_name = Column(String(100), nullable=True)
+    status = Column(String(20), default="empty")  # "active", "empty"
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    # SQLAlchemy level cascade: If the Project object is deleted, 
-    # these related objects will be deleted from the session.
-    assets = relationship("Asset", back_populates="project", cascade="all, delete-orphan")
-    findings = relationship("Vulnerability", back_populates="project", cascade="all, delete-orphan")
-    notes = relationship("Note", back_populates="project", cascade="all, delete-orphan")
 
 class Asset(Base):
     __tablename__ = "assets"
     id = Column(Integer, primary_key=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    name = Column(String, index=True, nullable=False)
-    type = Column(String)
-    description = Column(Text, nullable=True)
-
-    # Database level cascade: If the row in 'projects' is deleted, 
-    # the DB engine will automatically remove this asset.
-    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
-    project = relationship("Project", back_populates="assets")
+    # Added unique=True to prevent race conditions at the database level
+    name = Column(String, unique=True, index=True, nullable=False)
+    type = Column(String, nullable=False)
     
-    # Relationship with vulnerabilities (findings)
-    vulnerabilities = relationship("Vulnerability", back_populates="asset", cascade="all, delete-orphan")
-    __table_args__ = (UniqueConstraint('name', 'project_id', name='_asset_project_uc'),)
+    # Removed cascade="all, delete-orphan" to preserve audit history
+    vulnerabilities = relationship("Vulnerability", back_populates="asset")
 
 class VulnerabilityDefinition(Base):
     __tablename__ = "vulnerability_definitions"
@@ -54,7 +47,9 @@ class VulnerabilityDefinition(Base):
     description = Column(Text, nullable=True)
     recommendation = Column(Text, nullable=True)
     tags = Column(ARRAY(String), default=[])
-    instances = relationship("Vulnerability", back_populates="definition", cascade="all, delete-orphan")
+    
+    # Removed cascade="all, delete-orphan" to preserve audit history
+    instances = relationship("Vulnerability", back_populates="definition")
 
 class Vulnerability(Base):
     __tablename__ = "vulnerabilities"
@@ -66,15 +61,10 @@ class Vulnerability(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     notes = Column(Text, nullable=True)
 
-    # Both FKs use ondelete="CASCADE" to ensure that deleting 
-    # either the Project or the Asset removes the finding.
-    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
-    asset_id = Column(Integer, ForeignKey("assets.id", ondelete="CASCADE"), nullable=False)
-    
-    # Notice: No ondelete="CASCADE" for definition_id to avoid accidental catalog deletion
+    # Removed ondelete="CASCADE" to block accidental deletion of assets with active findings
+    asset_id = Column(Integer, ForeignKey("assets.id"), nullable=False)
     definition_id = Column(Integer, ForeignKey("vulnerability_definitions.id"), nullable=False)
     
-    project = relationship("Project", back_populates="findings")
     asset = relationship("Asset", back_populates="vulnerabilities")
     definition = relationship("VulnerabilityDefinition", back_populates="instances")
 
@@ -83,7 +73,3 @@ class Note(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, nullable=False)
     content = Column(Text, nullable=False)
-
-    # Relations
-    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
-    project = relationship("Project", back_populates="notes")
