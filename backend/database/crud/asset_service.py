@@ -32,7 +32,7 @@ def get_asset_by_id(db: Session, asset_id: int):
 
     if not db_asset:
         raise HTTPException(status_code=404, detail="Asset not found in active workspace.")
-    return db_asset
+    return _attach_findings_count(db, db_asset)
 
 def get_asset_by_name_silent(db: Session, name: str):
     """Retrieves an asset by its name without throwing exceptions if not found."""

@@ -53,6 +53,14 @@ def import_assets(assets: schemas.AssetBulkImport, db: Session = Depends(get_db)
     return asset_service.import_assets(db, assets)
 
 
+@router.get("/{id}", response_model=schemas.AssetRead)
+def get_asset(id: SafeIntID, db: Session = Depends(get_db)):
+    """
+    Retrieves a single asset by ID in the active workspace.
+    """
+    return asset_service.get_asset_by_id(db, id)
+
+
 @router.patch("/{id}", response_model=schemas.AssetRead)
 def update_asset(id: SafeIntID, asset_data: schemas.AssetUpdate, db: Session = Depends(get_db)):
     """
