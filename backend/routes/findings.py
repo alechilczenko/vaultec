@@ -27,15 +27,15 @@ def get_vulnerability_stats(db: Session = Depends(get_db)):
     return finding_service.get_severity_stats(db)
 
 
-@router.get("/by-asset", response_model=schemas.VulnerabilityJoinedRead)
-def get_vulnerabilities_by_asset(
-    skip: Annotated[int, Query(ge=0, le=10000, description="Records to skip")] = 0, 
-    limit: Annotated[int, Query(ge=1, le=100, description="Records per page")] = 50, 
-    q: Annotated[Optional[str], Depends(get_clean_query)] = None, 
-    db: Session = Depends(get_db)
+@router.get("", response_model=schemas.VulnerabilityJoinedRead)
+def list_findings(
+    skip: Annotated[int, Query(ge=0, le=10000, description="Records to skip")] = 0,
+    limit: Annotated[int, Query(ge=1, le=100, description="Records per page")] = 50,
+    q: Annotated[Optional[str], Depends(get_clean_query)] = None,
+    db: Session = Depends(get_db),
 ):
     """
-    Retrieves joined vulnerability and asset entries for the active workspace.
+    Lists findings in the active workspace, joined with asset and definition data.
     """
     return {"findings": finding_service.get_vulnerabilities_joined(db, skip, limit, q)}
 

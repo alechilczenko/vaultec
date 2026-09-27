@@ -183,7 +183,7 @@ def get_vulnerabilities_joined(db: Session, skip: int = 0, limit: int = 100, sea
         models.Vulnerability.id.label("instance_id")
     ).join(models.Asset, models.Vulnerability.asset_id == models.Asset.id)\
      .join(models.VulnerabilityDefinition, models.Vulnerability.definition_id == models.VulnerabilityDefinition.id)
-    
+
     if search_query:
         query = query.filter(
             or_(
