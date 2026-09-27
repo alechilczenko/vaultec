@@ -66,7 +66,7 @@ def delete_finding(db: Session, db_obj: models.Vulnerability):
     
 def get_severity_stats(db: Session):
     """
-    Calculates statistics based on severity for the active workspace.
+    Calculates severity counts for all findings in the active workspace.
     """
     priority_order = ["critical", "high", "medium", "low", "informative"]
 
@@ -76,8 +76,6 @@ def get_severity_stats(db: Session):
     ).join(
         models.Vulnerability, 
         models.Vulnerability.definition_id == models.VulnerabilityDefinition.id
-    ).filter(
-        models.Vulnerability.status == "open"
     ).group_by(
         models.VulnerabilityDefinition.severity
     ).all()
