@@ -6,6 +6,7 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from fastapi import HTTPException
 from loguru import logger
 import database.models as models
@@ -51,9 +52,15 @@ def save_definition(db: Session, new_def: models.VulnerabilityDefinition):
         )
     
 def search_definitions(db: Session, query: str):
-    return db.query(models.VulnerabilityDefinition).filter(models.VulnerabilityDefinition.title.ilike(f"%{query}%")).limit(10).all()
+    pattern = f"%{query}%"
+    return db.query(models.VulnerabilityDefinition).filter(
+        or_(
+            models.VulnerabilityDefinition.title.ilike(pattern),
+            models.VulnerabilityDefinition.category.ilike(pattern),
+        )
+    ).limit(10).all()
 
-def create_definition_strict(db: Session, data: schemas.VulnerabilityCreate):
+def create_definition_strict(db: Session, data: schemas.CatalogEntryCreate):
 
     title = data.title.strip()
     existing = get_definition_by_title(db, data.title)
@@ -67,6 +74,7 @@ def create_definition_strict(db: Session, data: schemas.VulnerabilityCreate):
     new_def = models.VulnerabilityDefinition(
         title=data.title.strip(),
         severity=data.severity,
+        category=data.category or "General",
         description=data.description,
         recommendation=data.recommendation,
         tags=data.tags
@@ -79,7 +87,10 @@ def get_or_create_definition(db: Session, title: str, **kwargs):
     existing = get_definition_by_title(db, clean_title)
     if existing:
         return existing
-    
+
+    if kwargs.get("category") is None:
+        kwargs.pop("category", None)
+
     new_def = models.VulnerabilityDefinition(title=clean_title, **kwargs)
     return save_definition(db, new_def)
 
@@ -120,11 +131,14 @@ def import_definitions(db: Session, data: schemas.CatalogImport):
             existing.description = item.description
             existing.recommendation = item.recommendation
             existing.tags = item.tags
+            if item.category is not None:
+                existing.category = item.category
             updated_titles.append(clean_title)
         else:
             new_defn = models.VulnerabilityDefinition(
                 title=clean_title,
                 severity=item.severity,
+                category=item.category or "General",
                 description=item.description,
                 recommendation=item.recommendation,
                 tags=item.tags
