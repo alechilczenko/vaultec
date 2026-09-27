@@ -17,11 +17,18 @@ class AssetType(str, Enum):
     HOST = "Host"
 
 
+class AssetScope(str, Enum):
+    IN_SCOPE = "in_scope"
+    OUT_OF_SCOPE = "out_of_scope"
+
+
 class AssetRead(BaseModel):
     id: SafeIntID
     name: str
     type: str
+    scope: AssetScope
     created_at: datetime
+    findings_count: int = 0
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -33,17 +40,22 @@ class AssetListRead(BaseModel):
 class AssetCreate(BaseSchema):
     name: str = Field(..., min_length=1, max_length=255, json_schema_extra={"example": "192.168.1.10"})
     type: AssetType
+    scope: AssetScope = Field(
+        default=AssetScope.IN_SCOPE,
+        description="Whether this asset is in or out of pentest scope.",
+    )
 
 
 class AssetUpdate(BaseSchema):
     name: Optional[str] = Field(default=None, min_length=1, max_length=255)
     type: Optional[AssetType] = Field(default=None)
+    scope: Optional[AssetScope] = Field(default=None)
 
     @model_validator(mode="before")
     @classmethod
     def reject_explicit_nulls(cls, data: Any) -> Any:
         if isinstance(data, dict):
-            for field in ["name", "type"]:
+            for field in ["name", "type", "scope"]:
                 if field in data and data[field] is None:
                     raise ValueError(f"Field '{field}' cannot be null.")
         return data

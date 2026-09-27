@@ -12,6 +12,17 @@ from loguru import logger
 import database.models as models
 import schemas
 
+def _attach_findings_count(db: Session, asset: models.Asset) -> models.Asset:
+    """Attaches total findings count (all statuses) onto the asset instance."""
+    count = (
+        db.query(func.count(models.Vulnerability.id))
+        .filter(models.Vulnerability.asset_id == asset.id)
+        .scalar()
+    ) or 0
+    asset.findings_count = count
+    return asset
+
+
 def get_asset_by_id(db: Session, asset_id: int):
     """
     Retrieves an asset by its internal ID in the active workspace.
@@ -29,8 +40,24 @@ def get_asset_by_name_silent(db: Session, name: str):
 
 
 def get_all_assets(db: Session, skip: int = 0, limit: int = 100):
-    """Retrieves all assets in the active workspace with pagination."""
-    return db.query(models.Asset).offset(skip).limit(limit).all()
+    """Retrieves all assets in the active workspace with findings counts and pagination."""
+    findings_count = func.count(models.Vulnerability.id).label("findings_count")
+    rows = (
+        db.query(models.Asset, findings_count)
+        .outerjoin(
+            models.Vulnerability,
+            models.Vulnerability.asset_id == models.Asset.id,
+        )
+        .group_by(models.Asset.id)
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    assets = []
+    for asset, count in rows:
+        asset.findings_count = count
+        assets.append(asset)
+    return assets
 
 def get_asset_type_stats(db: Session):
     """
@@ -72,11 +99,13 @@ def create_asset(db: Session, asset: schemas.AssetCreate):
     
     new_asset = models.Asset(
         name=asset.name, 
-        type=asset.type
+        type=asset.type.value,
+        scope=asset.scope.value,
     )
     db.add(new_asset)
     db.commit()
     db.refresh(new_asset)
+    new_asset.findings_count = 0
     logger.info(f"Asset created: {asset.name} (ID: {new_asset.id})")
     return new_asset
 
@@ -105,7 +134,7 @@ def update_asset(db: Session, db_asset: models.Asset, update_data: dict):
     db.commit()
     db.refresh(db_asset)
     logger.info(f"Asset '{original_name}' (ID: {db_asset.id}) updated to '{db_asset.name}'")
-    return db_asset
+    return _attach_findings_count(db, db_asset)
 
 
 def import_assets(db: Session, assets: schemas.AssetBulkImport):
@@ -121,7 +150,8 @@ def import_assets(db: Session, assets: schemas.AssetBulkImport):
             new_assets_objs.append(
                 models.Asset(
                     name=asset_data.name,
-                    type=asset_data.type
+                    type=asset_data.type.value,
+                    scope=asset_data.scope.value,
                 )
             )
             existing_names.add(asset_data.name)

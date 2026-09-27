@@ -35,6 +35,7 @@ class Asset(Base):
     # Added unique=True to prevent race conditions at the database level
     name = Column(String, unique=True, index=True, nullable=False)
     type = Column(String, nullable=False)
+    scope = Column(String(20), nullable=False, server_default="in_scope")
     
     # Removed cascade="all, delete-orphan" to preserve audit history
     vulnerabilities = relationship("Vulnerability", back_populates="asset")
@@ -44,6 +45,8 @@ class VulnerabilityDefinition(Base):
     id = Column(Integer, primary_key=True)
     title = Column(String, unique=True, index=True)
     severity = Column(String, nullable=False)
+    # Existing DBs: scripts/sql/add_category_to_vulnerability_definitions.sql
+    category = Column(String(100), nullable=False, server_default="General")
     description = Column(Text, nullable=True)
     recommendation = Column(Text, nullable=True)
     tags = Column(ARRAY(String), default=[])
