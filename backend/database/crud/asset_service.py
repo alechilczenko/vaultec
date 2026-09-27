@@ -12,7 +12,7 @@ from loguru import logger
 import database.models as models
 import schemas
 
-def _attach_findings_count(db: Session, asset: models.Asset) -> models.Asset:
+def attach_findings_count(db: Session, asset: models.Asset) -> models.Asset:
     """Attaches total findings count (all statuses) onto the asset instance."""
     count = (
         db.query(func.count(models.Vulnerability.id))
@@ -32,7 +32,7 @@ def get_asset_by_id(db: Session, asset_id: int):
 
     if not db_asset:
         raise HTTPException(status_code=404, detail="Asset not found in active workspace.")
-    return _attach_findings_count(db, db_asset)
+    return attach_findings_count(db, db_asset)
 
 def get_asset_by_name_silent(db: Session, name: str):
     """Retrieves an asset by its name without throwing exceptions if not found."""
@@ -134,7 +134,7 @@ def update_asset(db: Session, db_asset: models.Asset, update_data: dict):
     db.commit()
     db.refresh(db_asset)
     logger.info(f"Asset '{original_name}' (ID: {db_asset.id}) updated to '{db_asset.name}'")
-    return _attach_findings_count(db, db_asset)
+    return attach_findings_count(db, db_asset)
 
 
 def import_assets(db: Session, assets: schemas.AssetBulkImport):

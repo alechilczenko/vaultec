@@ -12,6 +12,14 @@ import schemas
 from database.crud import catalog_service, asset_service
 from loguru import logger
 
+
+def _prepare_finding_read(db: Session, finding: models.Vulnerability) -> models.Vulnerability:
+    """Ensures nested asset carries findings_count for AssetRead serialization."""
+    if finding.asset is not None:
+        asset_service.attach_findings_count(db, finding.asset)
+    return finding
+
+
 def update_finding(db: Session, db_obj: models.Vulnerability, update_data: dict):
     """
     Applies updates to a finding instance with robust error handling.
@@ -26,7 +34,7 @@ def update_finding(db: Session, db_obj: models.Vulnerability, update_data: dict)
         db.commit()
         db.refresh(db_obj)
         logger.info(f"Finding updated: '{finding_title}' (ID: {finding_id})")
-        return db_obj
+        return _prepare_finding_read(db, db_obj)
     except Exception as e:
         db.rollback()
         logger.error(f"Failed to update finding: '{finding_title}' (ID: {finding_id}): {str(e)}")
@@ -92,7 +100,7 @@ def get_finding_by_id(db: Session, finding_id: int):
             status_code=404,
             detail=f"Finding Error: Vulnerability instance with ID {finding_id} not found."
         )
-    return finding
+    return _prepare_finding_read(db, finding)
 
 def get_or_create_finding(db: Session, defn: models.VulnerabilityDefinition, asset: models.Asset, vulnerability_data: dict):
     """
@@ -124,7 +132,7 @@ def get_or_create_finding(db: Session, defn: models.VulnerabilityDefinition, ass
         db.commit()
         db.refresh(new_finding)
         logger.info(f"New finding created: '{defn.title}' on '{asset.name}'")
-        return new_finding
+        return _prepare_finding_read(db, new_finding)
     
     except Exception as e:
         db.rollback()
