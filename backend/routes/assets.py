@@ -33,9 +33,9 @@ def list_assets(
 @router.get("/stats")
 def get_finding_asset_stats(db: Session = Depends(get_db)):
     """
-    Retrieves asset type counts for assets with active vulnerabilities.
+    Retrieves type and scope metrics for all assets in the active workspace.
     """
-    return asset_service.get_asset_type_stats(db)
+    return asset_service.get_asset_stats(db)
 
 
 @router.post("/create", response_model=schemas.AssetRead, status_code=status.HTTP_201_CREATED)

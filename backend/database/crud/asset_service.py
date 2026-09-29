@@ -11,6 +11,7 @@ from fastapi import HTTPException
 from loguru import logger
 import database.models as models
 import schemas
+from schemas.asset import AssetScope
 
 _SEVERITY_RANK = case(
     (models.VulnerabilityDefinition.severity == "critical", 5),
@@ -108,33 +109,33 @@ def get_all_assets(db: Session, skip: int = 0, limit: int = 100):
         assets.append(asset)
     return assets
 
-def get_asset_type_stats(db: Session):
+def get_asset_stats(db: Session):
     """
-    Retrieves the total count of unique active assets categorized by type
-    (URLs, IPs, Hosts) that have open vulnerabilities in the active workspace.
+    Calculates type and scope counts for all assets in the active workspace.
     """
-    stats = db.query(
-        func.count(func.distinct(models.Asset.id)).filter(
-            models.Asset.type == "URL",
-            models.Vulnerability.status == "open"
-        ).label("urls"),
-        func.count(func.distinct(models.Asset.id)).filter(
-            models.Asset.type == "IP",
-            models.Vulnerability.status == "open"
-        ).label("ips"),
-        func.count(func.distinct(models.Asset.id)).filter(
-            models.Asset.type == "Host",
-            models.Vulnerability.status == "open"
-        ).label("hosts")
-    ).join(
-        models.Vulnerability, 
-        models.Vulnerability.asset_id == models.Asset.id
-    ).first()
+    type_keys = {"URL": "urls", "IP": "ips", "Host": "hosts"}
+    scope_order = [s.value for s in AssetScope]
+
+    type_rows = db.query(
+        models.Asset.type,
+        func.count(models.Asset.id)
+    ).group_by(
+        models.Asset.type
+    ).all()
+
+    scope_rows = db.query(
+        models.Asset.scope,
+        func.count(models.Asset.id)
+    ).group_by(
+        models.Asset.scope
+    ).all()
+
+    type_map = {asset_type: count for asset_type, count in type_rows}
+    scope_map = {scope: count for scope, count in scope_rows}
 
     return {
-        "urls": stats.urls if stats else 0,
-        "ips": stats.ips if stats else 0,
-        "hosts": stats.hosts if stats else 0
+        "by_type": {key: type_map.get(db_type, 0) for db_type, key in type_keys.items()},
+        "by_scope": {st: scope_map.get(st, 0) for st in scope_order},
     }
 
 def create_asset(db: Session, asset: schemas.AssetCreate):
