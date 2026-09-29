@@ -21,6 +21,13 @@ router = APIRouter(
 def get_vulnerability_catalog(db: Session = Depends(get_db), skip: int = Query(0, ge=0, le=10000), limit: int = Query(100, ge=1, le=500)):
     return {"definitions": catalog_service.get_all_definitions(db, skip=skip, limit=limit)}
 
+@router.get("/stats")
+def get_catalog_stats(db: Session = Depends(get_db)):
+    """
+    Retrieves severity and category metrics for all catalog definitions.
+    """
+    return catalog_service.get_catalog_stats(db)
+
 @router.get("/search", response_model=schemas.CatalogRead)
 def search_definitions(q: str = Depends(get_clean_query), db: Session = Depends(get_db)):
     return {"definitions": catalog_service.search_definitions(db,q)}

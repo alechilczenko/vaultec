@@ -6,11 +6,40 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from fastapi import HTTPException
 from loguru import logger
 import database.models as models
 import schemas
+
+
+def get_catalog_stats(db: Session):
+    """
+    Calculates severity and category counts for all catalog definitions.
+    """
+    severity_order = ["critical", "high", "medium", "low", "informative"]
+
+    severity_rows = db.query(
+        models.VulnerabilityDefinition.severity,
+        func.count(models.VulnerabilityDefinition.id)
+    ).group_by(
+        models.VulnerabilityDefinition.severity
+    ).all()
+
+    category_rows = db.query(
+        models.VulnerabilityDefinition.category,
+        func.count(models.VulnerabilityDefinition.id)
+    ).group_by(
+        models.VulnerabilityDefinition.category
+    ).all()
+
+    severity_map = {severity: count for severity, count in severity_rows}
+
+    return {
+        "by_severity": {sev: severity_map.get(sev, 0) for sev in severity_order},
+        "by_category": {category: count for category, count in category_rows},
+    }
+
 
 def get_all_definitions(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.VulnerabilityDefinition).offset(skip).limit(limit).all()
