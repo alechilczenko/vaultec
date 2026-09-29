@@ -4,13 +4,23 @@ Copyright (C) 2026 Alejandro Chilczenko
 Licensed under GNU GPLv3 - See the LICENSE file for details
 """
 
-from sqlalchemy import func
+from sqlalchemy import case, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from loguru import logger
 import database.models as models
 import schemas
+
+_SEVERITY_RANK = case(
+    (models.VulnerabilityDefinition.severity == "critical", 5),
+    (models.VulnerabilityDefinition.severity == "high", 4),
+    (models.VulnerabilityDefinition.severity == "medium", 3),
+    (models.VulnerabilityDefinition.severity == "low", 2),
+    (models.VulnerabilityDefinition.severity == "informative", 1),
+    else_=0,
+)
+
 
 def attach_findings_count(db: Session, asset: models.Asset) -> models.Asset:
     """Attaches total findings count (all statuses) onto the asset instance."""
@@ -33,6 +43,45 @@ def get_asset_by_id(db: Session, asset_id: int):
     if not db_asset:
         raise HTTPException(status_code=404, detail="Asset not found in active workspace.")
     return attach_findings_count(db, db_asset)
+
+
+def get_top_finding_for_asset(db: Session, asset_id: int):
+    """
+    Returns the highest-severity finding for an asset, or None if it has none.
+    Raises 404 if the asset does not exist.
+    """
+    exists = db.query(models.Asset.id).filter(models.Asset.id == asset_id).first()
+    if not exists:
+        raise HTTPException(status_code=404, detail="Asset not found in active workspace.")
+
+    row = (
+        db.query(
+            models.Vulnerability.id,
+            models.Vulnerability.status,
+            models.Vulnerability.created_at,
+            models.VulnerabilityDefinition.title,
+            models.VulnerabilityDefinition.severity,
+        )
+        .join(
+            models.VulnerabilityDefinition,
+            models.Vulnerability.definition_id == models.VulnerabilityDefinition.id,
+        )
+        .filter(models.Vulnerability.asset_id == asset_id)
+        .order_by(_SEVERITY_RANK.desc(), models.Vulnerability.created_at.desc())
+        .first()
+    )
+
+    if not row:
+        return None
+
+    return schemas.TopFindingRead(
+        id=row.id,
+        title=row.title,
+        severity=row.severity,
+        status=row.status,
+        created_at=row.created_at,
+    )
+
 
 def get_asset_by_name_silent(db: Session, name: str):
     """Retrieves an asset by its name without throwing exceptions if not found."""

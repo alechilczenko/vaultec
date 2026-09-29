@@ -4,6 +4,7 @@ Copyright (C) 2026 Alejandro Chilczenko
 Licensed under GNU GPLv3 - See the LICENSE file for details
 """
 
+from typing import Optional
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 from database.db import get_db
@@ -59,6 +60,14 @@ def get_asset(id: SafeIntID, db: Session = Depends(get_db)):
     Retrieves a single asset by ID in the active workspace.
     """
     return asset_service.get_asset_by_id(db, id)
+
+
+@router.get("/{id}/top-finding", response_model=Optional[schemas.TopFindingRead])
+def get_asset_top_finding(id: SafeIntID, db: Session = Depends(get_db)):
+    """
+    Retrieves the highest-severity finding for an asset, or null if none exist.
+    """
+    return asset_service.get_top_finding_for_asset(db, id)
 
 
 @router.patch("/{id}", response_model=schemas.AssetRead)

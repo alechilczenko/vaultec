@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator, field_valida
 from enum import Enum
 from datetime import datetime
 from .common import SafeIntID, BaseSchema
+from .enums import SeverityEnum, FindingStatus
 
 
 class AssetType(str, Enum):
@@ -36,6 +37,16 @@ class AssetRead(BaseModel):
 
 class AssetListRead(BaseModel):
     assets: list[AssetRead]
+
+
+class TopFindingRead(BaseModel):
+    id: SafeIntID
+    title: str
+    severity: SeverityEnum
+    status: FindingStatus
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AssetCreate(BaseSchema):
