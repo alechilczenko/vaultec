@@ -9,6 +9,7 @@ from sqlalchemy import func, or_
 from fastapi import HTTPException, status
 import database.models as models
 import schemas
+from schemas.enums import FindingStatus
 from database.crud import catalog_service, asset_service
 from loguru import logger
 
@@ -64,26 +65,37 @@ def delete_finding(db: Session, db_obj: models.Vulnerability):
             detail=f"Database Error: Could not delete finding ID {finding_id}. Transaction rolled back."
         )
     
-def get_severity_stats(db: Session):
+def get_finding_stats(db: Session):
     """
-    Calculates severity counts for all findings in the active workspace.
+    Calculates severity and status counts for all findings in the active workspace.
     """
-    priority_order = ["critical", "high", "medium", "low", "informative"]
+    severity_order = ["critical", "high", "medium", "low", "informative"]
+    status_order = [s.value for s in FindingStatus]
 
-    stats = db.query(
+    severity_rows = db.query(
         models.VulnerabilityDefinition.severity,
         func.count(models.Vulnerability.id)
     ).join(
-        models.Vulnerability, 
+        models.Vulnerability,
         models.Vulnerability.definition_id == models.VulnerabilityDefinition.id
     ).group_by(
         models.VulnerabilityDefinition.severity
     ).all()
 
-    stats_map = {severity: count for severity, count in stats}
-    ordered_stats = {sev: stats_map.get(sev, 0) for sev in priority_order}
+    status_rows = db.query(
+        models.Vulnerability.status,
+        func.count(models.Vulnerability.id)
+    ).group_by(
+        models.Vulnerability.status
+    ).all()
 
-    return ordered_stats
+    severity_map = {severity: count for severity, count in severity_rows}
+    status_map = {status: count for status, count in status_rows}
+
+    return {
+        "by_severity": {sev: severity_map.get(sev, 0) for sev in severity_order},
+        "by_status": {st: status_map.get(st, 0) for st in status_order},
+    }
 
 def get_finding_by_id(db: Session, finding_id: int):
     """

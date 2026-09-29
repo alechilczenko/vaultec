@@ -22,9 +22,9 @@ router = APIRouter(
 @router.get("/stats")
 def get_vulnerability_stats(db: Session = Depends(get_db)):
     """
-    Retrieves severity metrics for all findings in the active workspace.
+    Retrieves severity and status metrics for all findings in the active workspace.
     """
-    return finding_service.get_severity_stats(db)
+    return finding_service.get_finding_stats(db)
 
 
 @router.get("", response_model=schemas.VulnerabilityJoinedRead)
