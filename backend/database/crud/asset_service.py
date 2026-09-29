@@ -101,6 +101,7 @@ def create_asset(db: Session, asset: schemas.AssetCreate):
         name=asset.name, 
         type=asset.type.value,
         scope=asset.scope.value,
+        notes=asset.notes,
     )
     db.add(new_asset)
     db.commit()
@@ -152,6 +153,7 @@ def import_assets(db: Session, assets: schemas.AssetBulkImport):
                     name=asset_data.name,
                     type=asset_data.type.value,
                     scope=asset_data.scope.value,
+                    notes=asset_data.notes,
                 )
             )
             existing_names.add(asset_data.name)

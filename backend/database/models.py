@@ -36,6 +36,8 @@ class Asset(Base):
     name = Column(String, unique=True, index=True, nullable=False)
     type = Column(String, nullable=False)
     scope = Column(String(20), nullable=False, server_default="in_scope")
+    # Existing DBs: scripts/sql/add_notes_to_assets.sql
+    notes = Column(Text, nullable=True)
     
     # Removed cascade="all, delete-orphan" to preserve audit history
     vulnerabilities = relationship("Vulnerability", back_populates="asset")

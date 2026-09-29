@@ -5,7 +5,7 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 """
 
 from typing import Optional, Any
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator, field_validator
 from enum import Enum
 from datetime import datetime
 from .common import SafeIntID, BaseSchema
@@ -27,6 +27,7 @@ class AssetRead(BaseModel):
     name: str
     type: str
     scope: AssetScope
+    notes: Optional[str] = None
     created_at: datetime
     findings_count: int = 0
 
@@ -44,12 +45,28 @@ class AssetCreate(BaseSchema):
         default=AssetScope.IN_SCOPE,
         description="Whether this asset is in or out of pentest scope.",
     )
+    notes: Optional[str] = Field(None, max_length=2000)
+
+    @field_validator("notes", mode="before")
+    @classmethod
+    def empty_notes_as_none(cls, v: Any) -> Any:
+        if v == "":
+            return None
+        return v
 
 
 class AssetUpdate(BaseSchema):
     name: Optional[str] = Field(default=None, min_length=1, max_length=255)
     type: Optional[AssetType] = Field(default=None)
     scope: Optional[AssetScope] = Field(default=None)
+    notes: Optional[str] = Field(default=None, max_length=2000)
+
+    @field_validator("notes", mode="before")
+    @classmethod
+    def empty_notes_as_none(cls, v: Any) -> Any:
+        if v == "":
+            return None
+        return v
 
     @model_validator(mode="before")
     @classmethod
