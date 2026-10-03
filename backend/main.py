@@ -11,6 +11,7 @@ from database.db import engine
 from database.models import Base
 from auth.setup import setup_admin_user
 from auth.utils import get_current_user
+from dependencies.workspace import require_active_workspace
 from config.logger_config import setup_app_logging
 from routes import catalog, findings, notes, auth, assets, admin, workspace
 from loguru import logger
@@ -62,10 +63,13 @@ app.add_middleware(
 # Authentication routes (unprotected)
 app.include_router(auth.router)
 
-# Protected routes
+# Protected routes (auth only — usable in library mode when workspace is empty)
 app.include_router(workspace.router, dependencies=[Depends(get_current_user)])
 app.include_router(catalog.router, dependencies=[Depends(get_current_user)])
-app.include_router(findings.router, dependencies=[Depends(get_current_user)])
-app.include_router(notes.router, dependencies=[Depends(get_current_user)])
-app.include_router(assets.router, dependencies=[Depends(get_current_user)])
 app.include_router(admin.router, dependencies=[Depends(get_current_user)])
+
+# Engagement-scoped routes require an active assessment (workspace status == "active")
+_engagement_deps = [Depends(get_current_user), Depends(require_active_workspace)]
+app.include_router(findings.router, dependencies=_engagement_deps)
+app.include_router(notes.router, dependencies=_engagement_deps)
+app.include_router(assets.router, dependencies=_engagement_deps)

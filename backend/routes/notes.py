@@ -13,7 +13,19 @@ from schemas.common import SafeIntID
 
 router = APIRouter(
     prefix="/notes",
-    tags=["Notes"]
+    tags=["Notes"],
+    responses={
+        409: {
+            "description": "Workspace is empty (library mode); active assessment required.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Active assessment required. Call POST /workspace/setup first."
+                    }
+                }
+            },
+        }
+    },
 )
 
 

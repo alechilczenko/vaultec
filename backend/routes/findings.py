@@ -15,7 +15,19 @@ from dependencies.clean_query import get_clean_query
 
 router = APIRouter(
     prefix="/findings",
-    tags=["Findings (Instances)"]
+    tags=["Findings (Instances)"],
+    responses={
+        409: {
+            "description": "Workspace is empty (library mode); active assessment required.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Active assessment required. Call POST /workspace/setup first."
+                    }
+                }
+            },
+        }
+    },
 )
 
 
