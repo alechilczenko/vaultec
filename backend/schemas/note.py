@@ -23,7 +23,7 @@ class NoteCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     title: str = Field(..., min_length=1, max_length=100)
-    content: str = Field(default="", max_length=5000)
+    content: str = Field(..., min_length=1, max_length=5000)
 
     @field_validator("title", mode="before")
     @classmethod
@@ -33,7 +33,7 @@ class NoteCreate(BaseModel):
     @field_validator("content", mode="before")
     @classmethod
     def sanitize_content(cls, v: Any) -> Any:
-        return sanitize_text(v, strip=False)
+        return sanitize_text(v, strip=True)
 
 class NoteRead(BaseModel):
     id: SafeIntID
@@ -65,7 +65,7 @@ class NoteUpdate(BaseModel):
     @field_validator("content", mode="before")
     @classmethod
     def sanitize_content(cls, v: Any) -> Any:
-        return sanitize_text(v, strip=False)
+        return sanitize_text(v, strip=True)
 
 class NoteListRead(BaseModel):
     notes: list[NoteRead]
