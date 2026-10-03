@@ -35,8 +35,8 @@ class Asset(Base):
     # Added unique=True to prevent race conditions at the database level
     name = Column(String, unique=True, index=True, nullable=False)
     type = Column(String, nullable=False)
-    scope = Column(String(20), nullable=False, server_default="in_scope")
     # Existing DBs: scripts/sql/add_notes_to_assets.sql
+    # Drop legacy scope: scripts/sql/drop_scope_from_assets.sql
     notes = Column(Text, nullable=True)
     
     # Removed cascade="all, delete-orphan" to preserve audit history
@@ -45,6 +45,7 @@ class Asset(Base):
 class VulnerabilityDefinition(Base):
     __tablename__ = "vulnerability_definitions"
     id = Column(Integer, primary_key=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
     title = Column(String, unique=True, index=True)
     severity = Column(String, nullable=False)
     # Existing DBs: scripts/sql/add_category_to_vulnerability_definitions.sql

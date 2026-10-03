@@ -11,8 +11,6 @@ from fastapi import HTTPException
 from loguru import logger
 import database.models as models
 import schemas
-from schemas.asset import AssetScope
-
 _SEVERITY_RANK = case(
     (models.VulnerabilityDefinition.severity == "critical", 5),
     (models.VulnerabilityDefinition.severity == "high", 4),
@@ -111,10 +109,9 @@ def get_all_assets(db: Session, skip: int = 0, limit: int = 100):
 
 def get_asset_stats(db: Session):
     """
-    Calculates type and scope counts for all assets in the active workspace.
+    Calculates type counts for all assets in the active workspace.
     """
     type_keys = {"URL": "urls", "IP": "ips", "Host": "hosts"}
-    scope_order = [s.value for s in AssetScope]
 
     type_rows = db.query(
         models.Asset.type,
@@ -123,19 +120,10 @@ def get_asset_stats(db: Session):
         models.Asset.type
     ).all()
 
-    scope_rows = db.query(
-        models.Asset.scope,
-        func.count(models.Asset.id)
-    ).group_by(
-        models.Asset.scope
-    ).all()
-
     type_map = {asset_type: count for asset_type, count in type_rows}
-    scope_map = {scope: count for scope, count in scope_rows}
 
     return {
         "by_type": {key: type_map.get(db_type, 0) for db_type, key in type_keys.items()},
-        "by_scope": {st: scope_map.get(st, 0) for st in scope_order},
     }
 
 def create_asset(db: Session, asset: schemas.AssetCreate):
@@ -148,9 +136,8 @@ def create_asset(db: Session, asset: schemas.AssetCreate):
         )
     
     new_asset = models.Asset(
-        name=asset.name, 
+        name=asset.name,
         type=asset.type.value,
-        scope=asset.scope.value,
         notes=asset.notes,
     )
     db.add(new_asset)
@@ -202,7 +189,6 @@ def import_assets(db: Session, assets: schemas.AssetBulkImport):
                 models.Asset(
                     name=asset_data.name,
                     type=asset_data.type.value,
-                    scope=asset_data.scope.value,
                     notes=asset_data.notes,
                 )
             )

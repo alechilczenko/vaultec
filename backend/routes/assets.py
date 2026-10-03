@@ -33,7 +33,7 @@ def list_assets(
 @router.get("/stats")
 def get_finding_asset_stats(db: Session = Depends(get_db)):
     """
-    Retrieves type and scope metrics for all assets in the active workspace.
+    Retrieves type metrics for all assets in the active workspace.
     """
     return asset_service.get_asset_stats(db)
 
