@@ -4,10 +4,15 @@ Copyright (C) 2026 Alejandro Chilczenko
 Licensed under GNU GPLv3 - See the LICENSE file for details
 """
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from loguru import logger
 import database.models as models
+
+CATALOG_IN_USE_DETAIL = (
+    "Catalog is in use. Reset the workspace or delete all findings first, then try again."
+)
 
 def reset_active_workspace(db: Session):
     """
@@ -46,10 +51,17 @@ def clear_global_catalog(db: Session):
         db.query(models.VulnerabilityDefinition).delete()
         db.commit()
         logger.warning("Global vulnerability catalog has been cleared.")
+    except IntegrityError:
+        db.rollback()
+        logger.warning("Catalog clear blocked: definitions still referenced by findings")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=CATALOG_IN_USE_DETAIL,
+        )
     except Exception as e:
         db.rollback()
         logger.error(f"Catalog clear failed: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Catalog is in use. Delete all findings across all projects first."
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not clear the global catalog.",
         )
