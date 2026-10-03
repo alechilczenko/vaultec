@@ -1,20 +1,52 @@
-# Python bytecode
+# Python bytecode & cache
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
 
-# Environments
+# Python virtual environments
+.venv/
 venv/
 env/
-.env
+ENV/
+backend/.venv/
 
-# Databases
+# Testing & coverage artifacts
+backend/.schemathesis/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environment variables & local configuration
+.env
+.env.local
+.env.*.local
+!.env.example
+app/.env.example
+
+# Node / Frontend build artifacts
+node_modules/
+app/node_modules/
+dist/
+app/dist/
+build/
+
+# Databases & logs
 *.db
 *.sqlite3
+*.log
 
-# IDEs
+# IDE & Editor settings
 .vscode/
 .idea/
+*.swp
+*.swo
 
-scripts/
-docker-compose.yml
-tests/
+# Local tooling & workspace state
+.impeccable/
+
+# Local workspace docs, scripts & fixtures
+AGENTS.md
+docs/
+fixtures/
+backend/scripts/
