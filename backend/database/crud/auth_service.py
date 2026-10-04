@@ -13,7 +13,7 @@ from auth.utils import verify_password
 def authenticate_user(db: Session, username: str, password: str):
     """
     Validates user credentials against the database.
-    Raises 401 Unauthorized if invalid.
+    Raises 401 Unauthorized if invalid or the account is inactive.
     """
     user = db.query(models.User).filter(models.User.username == username).first()
     
@@ -23,21 +23,21 @@ def authenticate_user(db: Session, username: str, password: str):
             status_code=status.HTTP_401_UNAUTHORIZED, 
             detail="Invalid credentials",
             headers={"WWW-Authenticate": "Bearer"},)
+
+    if not user.is_active:
+        logger.warning(f"Login blocked for inactive user: '{username}'")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Inactive user account",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     
     logger.info(f"User authenticated successfully: '{username}'")
     return user
 
 def verify_user_token(current_user: models.User):
     """
-    Verifies that the provided user object from the token dependency is valid and active.
+    Session bootstrap helper. is_active is already enforced by get_current_user.
     """
-    if not current_user.is_active:
-        logger.warning(f"Inactive user attempt to verify token: '{current_user.username}'")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Inactive user account",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
     logger.debug(f"Token verified for active user: '{current_user.username}'")
     return current_user
