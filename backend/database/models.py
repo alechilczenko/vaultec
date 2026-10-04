@@ -4,7 +4,7 @@ Copyright (C) 2026 Alejandro Chilczenko
 Licensed under GNU GPLv3 - See the LICENSE file for details
 """
 
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, ForeignKey, Text, func, ARRAY
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, ForeignKey, Text, UniqueConstraint, func, ARRAY
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from database.db import Base
@@ -59,6 +59,14 @@ class VulnerabilityDefinition(Base):
 
 class Vulnerability(Base):
     __tablename__ = "vulnerabilities"
+    # Existing DBs: scripts/sql/add_unique_vulnerability_definition_asset.sql
+    __table_args__ = (
+        UniqueConstraint(
+            "definition_id",
+            "asset_id",
+            name="uq_vulnerability_definition_asset",
+        ),
+    )
     id = Column(Integer, primary_key=True)
     status = Column(String, default="open")
     evidence_type = Column(String) # "http", "terminal", "log"

@@ -6,6 +6,7 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
+from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
 import database.models as models
 import schemas
@@ -19,6 +20,23 @@ def _prepare_finding_read(db: Session, finding: models.Vulnerability) -> models.
     if finding.asset is not None:
         asset_service.attach_findings_count(db, finding.asset)
     return finding
+
+
+def _duplicate_finding_detail(asset_name: str, definition_title: str) -> str:
+    return (
+        f"Duplicate Finding: The asset '{asset_name}' already has an active record "
+        f"for '{definition_title}'. Duplicate prevented."
+    )
+
+
+def _raise_duplicate_finding(asset_name: str, definition_title: str) -> None:
+    logger.warning(
+        f"Duplicate finding blocked: '{definition_title}' already present on '{asset_name}'"
+    )
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=_duplicate_finding_detail(asset_name, definition_title),
+    )
 
 
 def update_finding(db: Session, db_obj: models.Vulnerability, update_data: dict):
@@ -114,22 +132,19 @@ def get_finding_by_id(db: Session, finding_id: int):
 
 def get_or_create_finding(db: Session, defn: models.VulnerabilityDefinition, asset: models.Asset, vulnerability_data: dict):
     """
-    Checks if an open finding already exists for the given asset and definition.
-    If it exists, raises a 400 error. Otherwise, creates a new one.
+    Creates a finding for the given asset and definition.
+    Raises 400 if any finding already exists for that pair (any status).
+    Relies on uq_vulnerability_definition_asset for concurrent races.
     """
 
-    # 1. Look for an existing open finding
+    # 1. Look for an existing finding (any status) for this definition × asset
     existing_finding = db.query(models.Vulnerability).filter(
         models.Vulnerability.definition_id == defn.id,
         models.Vulnerability.asset_id == asset.id
     ).first()
 
     if existing_finding:
-        logger.warning(f"Duplicate finding blocked: '{defn.title}' already active on '{asset.name}'")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Duplicate Finding: The asset '{asset.name}' already has an active record for '{defn.title}'. Duplicate prevented."
-        )
+        _raise_duplicate_finding(asset.name, defn.title)
     
     # 2. If no duplicate, create the new instance
     new_finding = models.Vulnerability(
@@ -143,7 +158,11 @@ def get_or_create_finding(db: Session, defn: models.VulnerabilityDefinition, ass
         db.refresh(new_finding)
         logger.info(f"New finding created: '{defn.title}' on '{asset.name}'")
         return _prepare_finding_read(db, new_finding)
-    
+
+    except IntegrityError:
+        db.rollback()
+        _raise_duplicate_finding(asset.name, defn.title)
+
     except Exception as e:
         db.rollback()
         logger.error(f"Failed to persist finding for Asset '{asset.name}': {str(e)}")
