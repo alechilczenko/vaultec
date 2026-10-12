@@ -42,7 +42,12 @@ def get_catalog_stats(db: Session):
 
 
 def get_all_definitions(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(models.VulnerabilityDefinition).offset(skip).limit(limit).all()
+    """Returns ``(definitions, total)`` for the global catalog list."""
+    total = db.query(func.count(models.VulnerabilityDefinition.id)).scalar() or 0
+    definitions = (
+        db.query(models.VulnerabilityDefinition).offset(skip).limit(limit).all()
+    )
+    return definitions, total
 
 def get_definition_by_id(db: Session, def_id: int):
     return db.query(models.VulnerabilityDefinition).filter(
@@ -81,13 +86,16 @@ def save_definition(db: Session, new_def: models.VulnerabilityDefinition):
         )
     
 def search_definitions(db: Session, query: str):
+    """Returns ``(definitions, total)``; results are capped at 10, ``total`` is uncapped."""
     pattern = f"%{query}%"
-    return db.query(models.VulnerabilityDefinition).filter(
+    filtered = db.query(models.VulnerabilityDefinition).filter(
         or_(
             models.VulnerabilityDefinition.title.ilike(pattern),
             models.VulnerabilityDefinition.category.ilike(pattern),
         )
-    ).limit(10).all()
+    )
+    total = filtered.count()
+    return filtered.limit(10).all(), total
 
 def create_definition_strict(db: Session, data: schemas.CatalogEntryCreate):
 

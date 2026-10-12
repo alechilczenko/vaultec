@@ -19,7 +19,8 @@ router = APIRouter(
 
 @router.get("/", response_model=schemas.CatalogRead)
 def get_vulnerability_catalog(db: Session = Depends(get_db), skip: int = Query(0, ge=0, le=10000), limit: int = Query(100, ge=1, le=500)):
-    return {"definitions": catalog_service.get_all_definitions(db, skip=skip, limit=limit)}
+    definitions, total = catalog_service.get_all_definitions(db, skip=skip, limit=limit)
+    return {"definitions": definitions, "total": total}
 
 @router.get("/stats")
 def get_catalog_stats(db: Session = Depends(get_db)):
@@ -30,7 +31,8 @@ def get_catalog_stats(db: Session = Depends(get_db)):
 
 @router.get("/search", response_model=schemas.CatalogRead)
 def search_definitions(q: str = Depends(get_clean_query), db: Session = Depends(get_db)):
-    return {"definitions": catalog_service.search_definitions(db,q)}
+    definitions, total = catalog_service.search_definitions(db, q)
+    return {"definitions": definitions, "total": total}
 
 @router.post("/create", response_model=schemas.VulnerabilityDefinitionRead, status_code=201)
 def create_vulnerability_definition(data: schemas.CatalogEntryCreate, db: Session = Depends(get_db)):

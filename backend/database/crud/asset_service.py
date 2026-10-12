@@ -88,7 +88,11 @@ def get_asset_by_name_silent(db: Session, name: str):
 
 
 def get_all_assets(db: Session, skip: int = 0, limit: int = 100):
-    """Retrieves all assets in the active workspace with findings counts and pagination."""
+    """Retrieves assets in the active workspace with findings counts and pagination.
+
+    Returns ``(assets, total)`` where ``total`` is the unpaginated asset count.
+    """
+    total = db.query(func.count(models.Asset.id)).scalar() or 0
     findings_count = func.count(models.Vulnerability.id).label("findings_count")
     rows = (
         db.query(models.Asset, findings_count)
@@ -105,7 +109,7 @@ def get_all_assets(db: Session, skip: int = 0, limit: int = 100):
     for asset, count in rows:
         asset.findings_count = count
         assets.append(asset)
-    return assets
+    return assets, total
 
 def get_asset_stats(db: Session):
     """

@@ -210,26 +210,46 @@ def process_vulnerability_entry(db: Session, vuln_data: schemas.VulnerabilityCre
 def get_vulnerabilities_joined(db: Session, skip: int = 0, limit: int = 100, search_query: str = None):
     """
     Retrieves vulnerabilities joined with assets and definitions for the active workspace.
+
+    Returns ``(rows, total)`` where ``total`` matches the same filters, ignoring skip/limit.
     """
+    base = (
+        db.query(models.Vulnerability.id)
+        .join(models.Asset, models.Vulnerability.asset_id == models.Asset.id)
+        .join(
+            models.VulnerabilityDefinition,
+            models.Vulnerability.definition_id == models.VulnerabilityDefinition.id,
+        )
+    )
+    if search_query:
+        base = base.filter(
+            or_(
+                models.VulnerabilityDefinition.title.ilike(f"%{search_query}%"),
+                models.Asset.name.ilike(f"%{search_query}%"),
+            )
+        )
+    total = base.count()
+
     query = db.query(
         models.Vulnerability.created_at,
         models.Asset.name.label("asset_name"),
         models.VulnerabilityDefinition.title,
         models.VulnerabilityDefinition.severity,
         models.Vulnerability.status,
-        models.Vulnerability.id.label("instance_id")
-    ).join(models.Asset, models.Vulnerability.asset_id == models.Asset.id)\
-     .join(models.VulnerabilityDefinition, models.Vulnerability.definition_id == models.VulnerabilityDefinition.id)
-
+        models.Vulnerability.id.label("instance_id"),
+    ).join(models.Asset, models.Vulnerability.asset_id == models.Asset.id).join(
+        models.VulnerabilityDefinition,
+        models.Vulnerability.definition_id == models.VulnerabilityDefinition.id,
+    )
     if search_query:
         query = query.filter(
             or_(
                 models.VulnerabilityDefinition.title.ilike(f"%{search_query}%"),
-                models.Asset.name.ilike(f"%{search_query}%")
+                models.Asset.name.ilike(f"%{search_query}%"),
             )
         )
-    return query.offset(skip).limit(limit).all()
-    
+    return query.offset(skip).limit(limit).all(), total
+
 
 def bulk_process_vulnerabilities(db: Session, import_data: schemas.VulnerabilityBulkImport):
     """

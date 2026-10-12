@@ -49,7 +49,8 @@ def list_findings(
     """
     Lists findings in the active workspace, joined with asset and definition data.
     """
-    return {"findings": finding_service.get_vulnerabilities_joined(db, skip, limit, q)}
+    findings, total = finding_service.get_vulnerabilities_joined(db, skip, limit, q)
+    return {"findings": findings, "total": total}
 
 
 @router.get("/{id}", response_model=schemas.VulnerabilityFullRead)

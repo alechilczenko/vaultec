@@ -31,6 +31,7 @@ class AssetRead(BaseModel):
 
 class AssetListRead(BaseModel):
     assets: list[AssetRead]
+    total: int = Field(..., ge=0)
 
 
 class TopFindingRead(BaseModel):

@@ -37,9 +37,10 @@ def list_assets(
     limit: int = Query(100, ge=1, le=500)
 ):
     """
-    Retrieves all assets registered in the active workspace.
+    Retrieves assets registered in the active workspace (paginated) plus total count.
     """
-    return {"assets": asset_service.get_all_assets(db, skip=skip, limit=limit)}
+    assets, total = asset_service.get_all_assets(db, skip=skip, limit=limit)
+    return {"assets": assets, "total": total}
 
 
 @router.get("/stats")
