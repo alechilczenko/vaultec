@@ -23,9 +23,26 @@ def get_workspace_status(db: Session = Depends(get_db)):
     return workspace_service.get_active_workspace(db)
 
 
-@router.post("/setup", response_model=schemas.WorkspaceRead, status_code=status.HTTP_200_OK)
+@router.post(
+    "/setup",
+    response_model=schemas.WorkspaceRead,
+    status_code=status.HTTP_200_OK,
+    responses={
+        409: {
+            "description": "Assessment already active; reset before setup.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Assessment already active. Reset the workspace before setting up a new one."
+                    }
+                }
+            },
+        }
+    },
+)
 def setup_workspace(data: schemas.WorkspaceSetup, db: Session = Depends(get_db)):
     """
-    Initializes or updates the client context for the active audit workspace.
+    Initializes the empty workspace as an active assessment (name + client).
+    Returns 409 if an assessment is already active — call DELETE /admin/workspace/reset first.
     """
     return workspace_service.setup_workspace(db, data)
