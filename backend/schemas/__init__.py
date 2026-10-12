@@ -10,10 +10,10 @@ from .vulnerability import (
     VulnerabilityInstanceUpdate,
     VulnerabilityByAsset,
     VulnerabilityFullRead,
-    CatalogImport,
-    CatalogEntryCreate,
+    TemplatesImport,
+    TemplateEntryCreate,
     VulnerabilityBulkImport,
-    CatalogRead,
+    TemplatesRead,
     VulnerabilityJoinedRead
 )
 from .workspace import WorkspaceSetup, WorkspaceRead

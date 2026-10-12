@@ -13,9 +13,9 @@ import database.models as models
 import schemas
 
 
-def get_catalog_stats(db: Session):
+def get_template_stats(db: Session):
     """
-    Calculates severity and category counts for all catalog definitions.
+    Calculates severity and category counts for all template definitions.
     """
     severity_order = ["critical", "high", "medium", "low", "informative"]
 
@@ -42,12 +42,12 @@ def get_catalog_stats(db: Session):
 
 
 def get_all_definitions(db: Session, skip: int = 0, limit: int = 100):
-    """Returns ``(definitions, total)`` for the global catalog list."""
+    """Returns ``(templates, total)`` for the global templates list."""
     total = db.query(func.count(models.VulnerabilityDefinition.id)).scalar() or 0
-    definitions = (
+    templates = (
         db.query(models.VulnerabilityDefinition).offset(skip).limit(limit).all()
     )
-    return definitions, total
+    return templates, total
 
 def get_definition_by_id(db: Session, def_id: int):
     return db.query(models.VulnerabilityDefinition).filter(
@@ -59,7 +59,7 @@ def get_definition_or_404(db: Session, def_id: int):
     if not definition:
         raise HTTPException(
             status_code=404,
-            detail=f"Catalog Error: Vulnerability definition with ID {def_id} not found."
+            detail=f"Template Error: Vulnerability definition with ID {def_id} not found."
         )
     return definition
 
@@ -75,7 +75,7 @@ def save_definition(db: Session, new_def: models.VulnerabilityDefinition):
     try:
         db.commit()
         db.refresh(new_def)
-        logger.info(f"New definition saved to catalog: '{def_title}'")
+        logger.info(f"New definition saved to templates: '{def_title}'")
         return new_def
     except Exception as e:
         db.rollback()
@@ -86,7 +86,7 @@ def save_definition(db: Session, new_def: models.VulnerabilityDefinition):
         )
     
 def search_definitions(db: Session, query: str):
-    """Returns ``(definitions, total)``; results are capped at 10, ``total`` is uncapped."""
+    """Returns ``(templates, total)``; results are capped at 10, ``total`` is uncapped."""
     pattern = f"%{query}%"
     filtered = db.query(models.VulnerabilityDefinition).filter(
         or_(
@@ -97,16 +97,16 @@ def search_definitions(db: Session, query: str):
     total = filtered.count()
     return filtered.limit(10).all(), total
 
-def create_definition_strict(db: Session, data: schemas.CatalogEntryCreate):
+def create_definition_strict(db: Session, data: schemas.TemplateEntryCreate):
 
     title = data.title.strip()
     existing = get_definition_by_title(db, data.title)
     
     if existing:
-        logger.warning(f"Definition creation blocked: '{title}' already exists in catalog")
+        logger.warning(f"Definition creation blocked: '{title}' already exists in templates")
         raise HTTPException(
             status_code=400,
-            detail=f"Catalog Error: A definition with the title '{data.title.strip()}' already exists in the database.")
+            detail=f"Template Error: A definition with the title '{data.title.strip()}' already exists in the database.")
     
     new_def = models.VulnerabilityDefinition(
         title=data.title.strip(),
@@ -141,10 +141,10 @@ def update_definition(db: Session, def_id: int, update_data: dict):
         existing = get_definition_by_title(db, clean_title)
         
         if existing and existing.id != db_obj.id:
-            logger.warning(f"Catalog update blocked: Title '{clean_title}' already exists (ID: {existing.id})")
+            logger.warning(f"Template update blocked: Title '{clean_title}' already exists (ID: {existing.id})")
             raise HTTPException(
                 status_code=400, 
-                detail=f"Catalog Conflict: The title '{clean_title}' is already in use by definition ID {existing.id}."
+                detail=f"Template Conflict: The title '{clean_title}' is already in use by definition ID {existing.id}."
             )
         update_data["title"] = clean_title
 
@@ -153,12 +153,12 @@ def update_definition(db: Session, def_id: int, update_data: dict):
     
     return save_definition(db, db_obj)
 
-def import_definitions(db: Session, data: schemas.CatalogImport):
-    # Handles bulk import and updates for definitions
+def import_definitions(db: Session, data: schemas.TemplatesImport):
+    # Handles bulk import and updates for templates
     created_titles = []
     updated_titles = []
 
-    for item in data.definitions:
+    for item in data.templates:
         clean_title = item.title.strip()
         existing = get_definition_by_title(db, clean_title)
 
@@ -185,22 +185,22 @@ def import_definitions(db: Session, data: schemas.CatalogImport):
         db.flush()
     try:
         db.commit()
-        logger.info(f"Catalog bulk import finished: {len(created_titles)} created, {len(updated_titles)} updated")
+        logger.info(f"Templates bulk import finished: {len(created_titles)} created, {len(updated_titles)} updated")
     except Exception as e:
         db.rollback()
-        logger.error(f"Critical error during catalog bulk import: {str(e)}")
+        logger.error(f"Critical error during templates bulk import: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Database error during import: {str(e)}")
 
     return {
-        "message": "Catalog import completed successfully.",
+        "message": "Templates import completed successfully.",
         "summary": {
             "created": len(created_titles),
             "updated": len(updated_titles),
-            "total": len(data.definitions)
+            "total": len(data.templates)
         },
         "details": {
-            "new_definitions": created_titles,
-            "updated_definitions": updated_titles
+            "new_templates": created_titles,
+            "updated_templates": updated_titles
         }
     }
 
@@ -213,14 +213,14 @@ def delete_definition(db: Session, def_id: int):
     try:
         db.delete(db_obj)
         db.commit()
-        logger.info(f"Definition: '{title}' (ID: {def_id}) deleted from catalog")
+        logger.info(f"Definition: '{title}' (ID: {def_id}) deleted from templates")
     except IntegrityError:
         db.rollback()
         logger.warning(f"Deletion blocked: Definition '{title}' is in use by active findings")
         raise HTTPException(
             status_code=400,
             detail=(
-                f"Catalog Dependency Error: Cannot delete '{title}'. "
+                f"Template Dependency Error: Cannot delete '{title}'. "
                 "There are active findings using this definition. "
                 "Remove those findings first."
             )

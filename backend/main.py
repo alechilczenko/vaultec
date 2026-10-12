@@ -13,7 +13,7 @@ from auth.setup import setup_admin_user
 from auth.utils import get_current_user
 from dependencies.workspace import require_active_workspace
 from config.logger_config import setup_app_logging
-from routes import catalog, findings, notes, auth, assets, admin, workspace
+from routes import templates, findings, notes, auth, assets, admin, workspace
 from loguru import logger
 from inspect import cleandoc
 import os
@@ -37,12 +37,12 @@ app = FastAPI(
     title="API",
     description=cleandoc("""
         ## Vulnerability Management Platform
-        Standardized API for managing active audit workspace, assets, catalog definitions, and security findings.
+        Standardized API for managing active audit workspace, assets, vulnerability templates, and security findings.
         
         ### Features:
         * **Workspace**: Manage active audit context.
         * **Assets**: Manage infrastructure inventory.
-        * **Catalog**: Centralized vulnerability definitions.
+        * **Templates**: Centralized vulnerability definitions.
         * **Findings**: Track and remediate security issues.
     """),
     version="1.0.0",
@@ -65,7 +65,7 @@ app.include_router(auth.router)
 
 # Protected routes (auth only — usable in library mode when workspace is empty)
 app.include_router(workspace.router, dependencies=[Depends(get_current_user)])
-app.include_router(catalog.router, dependencies=[Depends(get_current_user)])
+app.include_router(templates.router, dependencies=[Depends(get_current_user)])
 app.include_router(admin.router, dependencies=[Depends(get_current_user)])
 
 # Engagement-scoped routes require an active assessment (workspace status == "active")

@@ -11,7 +11,7 @@ from fastapi import HTTPException, status
 import database.models as models
 import schemas
 from schemas.enums import FindingStatus
-from database.crud import catalog_service, asset_service
+from database.crud import template_service, asset_service
 from loguru import logger
 
 
@@ -194,7 +194,7 @@ def process_vulnerability_entry(db: Session, vuln_data: schemas.VulnerabilityCre
     v_title = def_data.pop("title")
 
     # 2. Get/Create Definition
-    target_defn = catalog_service.get_or_create_definition(db, title=v_title, **def_data)
+    target_defn = template_service.get_or_create_definition(db, title=v_title, **def_data)
 
     # 3. Prepare Finding Data
     finding_info = {
