@@ -31,14 +31,6 @@ router = APIRouter(
 )
 
 
-@router.get("/stats")
-def get_vulnerability_stats(db: Session = Depends(get_db)):
-    """
-    Retrieves severity and status metrics for all findings in the active workspace.
-    """
-    return finding_service.get_finding_stats(db)
-
-
 @router.get("", response_model=schemas.VulnerabilityJoinedRead)
 def list_findings(
     skip: Annotated[int, Query(ge=0, le=10000, description="Records to skip")] = 0,
@@ -53,12 +45,12 @@ def list_findings(
     return {"findings": findings, "total": total}
 
 
-@router.get("/{id}", response_model=schemas.VulnerabilityFullRead)
-def get_finding_detail(id: SafeIntID, db: Session = Depends(get_db)):
+@router.get("/stats")
+def get_vulnerability_stats(db: Session = Depends(get_db)):
     """
-    Retrieves details for a single finding instance.
+    Retrieves severity and status metrics for all findings in the active workspace.
     """
-    return finding_service.get_finding_by_id(db, id)
+    return finding_service.get_finding_stats(db)
 
 
 @router.post("/create", response_model=schemas.VulnerabilityFullRead, status_code=status.HTTP_201_CREATED)
@@ -75,6 +67,14 @@ def bulk_create_vulnerabilities(data: schemas.VulnerabilityBulkImport, db: Sessi
     Bulk imports multiple findings into the active workspace.
     """
     return finding_service.bulk_process_vulnerabilities(db, data)
+
+
+@router.get("/{id}", response_model=schemas.VulnerabilityFullRead)
+def get_finding_detail(id: SafeIntID, db: Session = Depends(get_db)):
+    """
+    Retrieves details for a single finding instance.
+    """
+    return finding_service.get_finding_by_id(db, id)
 
 
 @router.patch("/{id}", response_model=schemas.VulnerabilityFullRead)

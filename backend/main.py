@@ -13,7 +13,7 @@ from auth.setup import setup_admin_user
 from auth.utils import get_current_user
 from dependencies.workspace import require_active_workspace
 from config.logger_config import setup_app_logging
-from routes import templates, findings, notes, auth, assets, admin, workspace
+from routes import admin, assets, auth, findings, notes, templates, workspace
 from loguru import logger
 from inspect import cleandoc
 import os
@@ -50,6 +50,36 @@ app = FastAPI(
         "name": "Alejandro Chilczenko",
         "url": "https://github.com/alechilczenko",
     },
+    openapi_tags=[
+        {
+            "name": "Authentication",
+            "description": "Login and session verification. Only POST /auth/token is public.",
+        },
+        {
+            "name": "Workspace",
+            "description": "Single assessment context (id=1). Usable while the workspace is empty.",
+        },
+        {
+            "name": "Templates (Vulnerability Definitions)",
+            "description": "Global reusable vulnerability definitions. Survives a workspace reset.",
+        },
+        {
+            "name": "Assets",
+            "description": "Engagement inventory. Requires an active assessment.",
+        },
+        {
+            "name": "Findings (Instances)",
+            "description": "Finding instances on assets (status, evidence, notes). Requires an active assessment.",
+        },
+        {
+            "name": "Notes",
+            "description": "Free-form engagement notes. Requires an active assessment.",
+        },
+        {
+            "name": "Maintenance",
+            "description": "Irreversible reset of the workspace or the global template library.",
+        },
+    ],
 )
 
 app.add_middleware(
@@ -66,10 +96,12 @@ app.include_router(auth.router)
 # Protected routes (auth only — usable in library mode when workspace is empty)
 app.include_router(workspace.router, dependencies=[Depends(get_current_user)])
 app.include_router(templates.router, dependencies=[Depends(get_current_user)])
-app.include_router(admin.router, dependencies=[Depends(get_current_user)])
 
 # Engagement-scoped routes require an active assessment (workspace status == "active")
 _engagement_deps = [Depends(get_current_user), Depends(require_active_workspace)]
+app.include_router(assets.router, dependencies=_engagement_deps)
 app.include_router(findings.router, dependencies=_engagement_deps)
 app.include_router(notes.router, dependencies=_engagement_deps)
-app.include_router(assets.router, dependencies=_engagement_deps)
+
+# Destructive maintenance (auth only; not engagement-gated)
+app.include_router(admin.router, dependencies=[Depends(get_current_user)])
