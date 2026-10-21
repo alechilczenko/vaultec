@@ -8,7 +8,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 from database.db import get_db
-from database.crud import asset_service
+from services import asset_service
 import schemas.asset as schemas
 from schemas.common import SafeIntID
 

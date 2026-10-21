@@ -7,7 +7,7 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 from database.db import get_db
-from database.crud import workspace_service
+from services import workspace_service
 import schemas
 
 router = APIRouter(

@@ -11,7 +11,7 @@ from fastapi import HTTPException, status
 import database.models as models
 import schemas
 from schemas.enums import FindingStatus
-from database.crud import template_service, asset_service
+from services import template_service, asset_service
 from loguru import logger
 
 

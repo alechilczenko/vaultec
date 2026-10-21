@@ -13,7 +13,7 @@ from auth.utils import create_access_token, get_current_user
 from schemas import auth
 from schemas.user import UserRead
 
-from database.crud import auth_service
+from services import auth_service
 router = APIRouter(
     prefix="/auth",
     tags=["Authentication"])

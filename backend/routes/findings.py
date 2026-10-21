@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 from typing import Annotated, Optional
 from database.db import get_db
-from database.crud import finding_service
+from services import finding_service
 import schemas
 from schemas.common import SafeIntID
 from dependencies.clean_query import get_clean_query

@@ -7,7 +7,7 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from database.db import get_db
-from database.crud import template_service
+from services import template_service
 import schemas
 from schemas.common import SafeIntID
 from dependencies.clean_query import get_clean_query
