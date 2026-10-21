@@ -206,10 +206,10 @@ def import_assets(db: Session, assets: schemas.AssetBulkImport):
             db.add_all(new_assets_objs)
             db.commit()
             logger.info(f"Bulk import successful: {len(added_names)} assets added")
-        except Exception as e:
+        except Exception:
             db.rollback()
-            logger.error(f"Bulk asset import failed: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+            logger.exception("Bulk asset import failed")
+            raise HTTPException(status_code=500, detail="Database error during import.")
 
     return {
         "message": "Import completed",

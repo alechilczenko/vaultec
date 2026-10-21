@@ -77,12 +77,12 @@ def save_definition(db: Session, new_def: models.VulnerabilityDefinition):
         db.refresh(new_def)
         logger.info(f"New definition saved to templates: '{def_title}'")
         return new_def
-    except Exception as e:
+    except Exception:
         db.rollback()
-        logger.error(f"Failed to save definition: '{def_title}': {str(e)}")
+        logger.exception(f"Failed to save definition: '{def_title}'")
         raise HTTPException(
-            status_code=500, 
-            detail=f"Database Error: Could not persist data. {str(e)}"
+            status_code=500,
+            detail="Database Error: Could not persist data.",
         )
     
 def search_definitions(db: Session, query: str):
@@ -186,10 +186,10 @@ def import_definitions(db: Session, data: schemas.TemplatesImport):
     try:
         db.commit()
         logger.info(f"Templates bulk import finished: {len(created_titles)} created, {len(updated_titles)} updated")
-    except Exception as e:
+    except Exception:
         db.rollback()
-        logger.error(f"Critical error during templates bulk import: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Database error during import: {str(e)}")
+        logger.exception("Critical error during templates bulk import")
+        raise HTTPException(status_code=500, detail="Database error during import.")
 
     return {
         "message": "Templates import completed successfully.",
