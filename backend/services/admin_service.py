@@ -15,17 +15,12 @@ TEMPLATES_IN_USE_DETAIL = (
 )
 
 def reset_active_workspace(db: Session):
-    """
-    Clears all active audit data (findings, notes, assets) and resets 
-    the workspace state to empty. Preserves the global templates.
-    """
+    """Findings, notes, and assets are deleted. Global templates stay."""
     try:
-        # 1. Clear active audit data
         db.query(models.Vulnerability).delete()
         db.query(models.Note).delete()
         db.query(models.Asset).delete()
 
-        # 2. Reset workspace state
         workspace = db.query(models.Workspace).filter(models.Workspace.id == 1).first()
         if workspace:
             workspace.name = None
@@ -43,10 +38,7 @@ def reset_active_workspace(db: Session):
         )
 
 def clear_global_templates(db: Session):
-    """
-    Removes all definitions from the global templates library.
-    This will fail if ANY project has a finding linked to a definition.
-    """
+    """400 when a finding still references a definition."""
     try:
         db.query(models.VulnerabilityDefinition).delete()
         db.commit()

@@ -17,10 +17,7 @@ class User(Base):
     is_active = Column(Boolean, default=True)
 
 class Workspace(Base):
-    """
-    Represents the single active audit workspace context.
-    Only one row (id=1) should exist or be active at any given time.
-    """
+    """Only the row id=1 is the assessment."""
     __tablename__ = "workspace"
     id = Column(Integer, primary_key=True, default=1)
     name = Column(String(100), nullable=True)
@@ -32,14 +29,14 @@ class Asset(Base):
     __tablename__ = "assets"
     id = Column(Integer, primary_key=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    # Added unique=True to prevent race conditions at the database level
+    # unique so two creates cannot insert the same name
     name = Column(String, unique=True, index=True, nullable=False)
     type = Column(String, nullable=False)
     # Existing DBs: scripts/sql/add_notes_to_assets.sql
     # Drop legacy scope: scripts/sql/drop_scope_from_assets.sql
     notes = Column(Text, nullable=True)
     
-    # Removed cascade="all, delete-orphan" to preserve audit history
+    # no cascade: deleting the asset must not delete its findings
     vulnerabilities = relationship("Vulnerability", back_populates="asset")
 
 class VulnerabilityDefinition(Base):
@@ -55,7 +52,7 @@ class VulnerabilityDefinition(Base):
     recommendation = Column(Text, nullable=True)
     tags = Column(ARRAY(String), default=[])
     
-    # Removed cascade="all, delete-orphan" to preserve audit history
+    # no cascade: deleting a template must not delete findings that use it
     instances = relationship("Vulnerability", back_populates="definition")
 
 class Vulnerability(Base):
@@ -76,7 +73,7 @@ class Vulnerability(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     notes = Column(Text, nullable=True)
 
-    # Removed ondelete="CASCADE" to block accidental deletion of assets with active findings
+    # no ON DELETE CASCADE: an asset with findings cannot be removed by the database
     asset_id = Column(Integer, ForeignKey("assets.id"), nullable=False)
     definition_id = Column(Integer, ForeignKey("vulnerability_definitions.id"), nullable=False)
     

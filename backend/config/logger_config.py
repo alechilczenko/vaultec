@@ -9,18 +9,14 @@ import sys
 from loguru import logger
 
 class InterceptHandler(logging.Handler):
-    """
-    Default handler from logging to intercept standard library logs 
-    and redirect them to Loguru.
-    """
+    """Send stdlib log records to Loguru."""
     def emit(self, record):
-        # Get corresponding Loguru level if it exists
         try:
             level = logger.level(record.levelname).name
         except ValueError:
             level = record.levelno
 
-        # Find caller from where originated the logged message
+        # Skip logging frames so Loguru attributes the real caller.
         frame, depth = logging.currentframe(), 2
         while frame.f_code.co_filename == logging.__file__:
             frame = frame.f_back
@@ -29,27 +25,19 @@ class InterceptHandler(logging.Handler):
         logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
 
 def setup_app_logging():
-    """
-    Configures Loguru to be the primary logger and intercepts
-    Uvicorn and SQLAlchemy logs to avoid duplication and unify format.
-    """
-    # 1. Clear default Loguru handlers
+    """Route Uvicorn, SQLAlchemy, and the root logger through Loguru."""
     logger.remove()
 
-    # 2. Add custom stdout handler for production-ready output
     logger.add(
         sys.stdout,
         format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{message}</cyan>",
         level="INFO",
-        enqueue=True  # Asynchronous logging to avoid blocking the main thread
+        enqueue=True  # keep logging off the request thread
     )
 
-    # 3. Intercept Uvicorn logs
     logging.getLogger("uvicorn").handlers = [InterceptHandler()]
     logging.getLogger("uvicorn.access").handlers = [InterceptHandler()]
-    
-    # 4. Intercept SQLAlchemy logs (optional, useful for DB debugging)
+
     logging.getLogger("sqlalchemy.engine").handlers = [InterceptHandler()]
 
-    # 5. Set root logger to use InterceptHandler
     logging.basicConfig(handlers=[InterceptHandler()], level=0, force=True)

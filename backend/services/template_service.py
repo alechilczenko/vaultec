@@ -14,9 +14,6 @@ import schemas
 
 
 def get_template_stats(db: Session):
-    """
-    Calculates severity and category counts for all template definitions.
-    """
     severity_order = ["critical", "high", "medium", "low", "info"]
 
     severity_rows = db.query(
@@ -42,7 +39,7 @@ def get_template_stats(db: Session):
 
 
 def get_all_definitions(db: Session, skip: int = 0, limit: int = 100):
-    """Returns ``(templates, total)`` for the global templates list."""
+    """Returns (templates, total). total ignores skip and limit."""
     total = db.query(func.count(models.VulnerabilityDefinition.id)).scalar() or 0
     templates = (
         db.query(models.VulnerabilityDefinition).offset(skip).limit(limit).all()
@@ -86,7 +83,7 @@ def save_definition(db: Session, new_def: models.VulnerabilityDefinition):
         )
     
 def search_definitions(db: Session, query: str):
-    """Returns ``(templates, total)``; results are capped at 10, ``total`` is uncapped."""
+    """Returns (templates, total). Rows cap at 10. total does not."""
     pattern = f"%{query}%"
     filtered = db.query(models.VulnerabilityDefinition).filter(
         or_(
@@ -135,7 +132,6 @@ def update_definition(db: Session, def_id: int, update_data: dict):
 
     db_obj = get_definition_or_404(db, def_id)
 
-    # Validates uniqueness of title to prevent IntegrityError
     if "title" in update_data:
         clean_title = update_data["title"].strip()
         existing = get_definition_by_title(db, clean_title)
@@ -154,7 +150,7 @@ def update_definition(db: Session, def_id: int, update_data: dict):
     return save_definition(db, db_obj)
 
 def import_definitions(db: Session, data: schemas.TemplatesImport):
-    # Handles bulk import and updates for templates
+    """Existing titles are updated in place. New titles are inserted."""
     created_titles = []
     updated_titles = []
 
@@ -205,9 +201,6 @@ def import_definitions(db: Session, data: schemas.TemplatesImport):
     }
 
 def delete_definition(db: Session, def_id: int):
-    """
-    Deletes a vulnerability definition and handles dependency conflicts.
-    """
     db_obj = get_definition_or_404(db, def_id)
     title = db_obj.title
     try:

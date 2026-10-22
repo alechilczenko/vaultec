@@ -38,42 +38,27 @@ def list_findings(
     q: Annotated[Optional[str], Depends(get_clean_query)] = None,
     db: Session = Depends(get_db),
 ):
-    """
-    Lists findings in the active workspace, joined with asset and definition data.
-    """
     findings, total = finding_service.get_vulnerabilities_joined(db, skip, limit, q)
     return {"findings": findings, "total": total}
 
 
 @router.get("/stats")
 def get_vulnerability_stats(db: Session = Depends(get_db)):
-    """
-    Retrieves severity and status metrics for all findings in the active workspace.
-    """
     return finding_service.get_finding_stats(db)
 
 
 @router.post("/create", response_model=schemas.VulnerabilityFullRead, status_code=status.HTTP_201_CREATED)
 def create_vulnerabilities(vulnerability: schemas.VulnerabilityCreate, db: Session = Depends(get_db)):
-    """
-    Creates or registers a new finding in the active workspace.
-    """
     return finding_service.process_vulnerability_entry(db, vulnerability)
 
 
 @router.post("/import")
 def bulk_create_vulnerabilities(data: schemas.VulnerabilityBulkImport, db: Session = Depends(get_db)):
-    """
-    Bulk imports multiple findings into the active workspace.
-    """
     return finding_service.bulk_process_vulnerabilities(db, data)
 
 
 @router.get("/{id}", response_model=schemas.VulnerabilityFullRead)
 def get_finding_detail(id: SafeIntID, db: Session = Depends(get_db)):
-    """
-    Retrieves details for a single finding instance.
-    """
     return finding_service.get_finding_by_id(db, id)
 
 
@@ -83,9 +68,6 @@ def update_vulnerability_instance(
     data: schemas.VulnerabilityInstanceUpdate, 
     db: Session = Depends(get_db)
 ):
-    """
-    Updates an existing finding in the active workspace.
-    """
     db_v = finding_service.get_finding_by_id(db, id)
     update_data = data.model_dump(exclude_unset=True, mode="json")
     return finding_service.update_finding(db, db_v, update_data)
@@ -93,9 +75,6 @@ def update_vulnerability_instance(
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_vulnerability_instance(id: SafeIntID, db: Session = Depends(get_db)):
-    """
-    Deletes a finding instance from the active workspace.
-    """
     db_v = finding_service.get_finding_by_id(db, id)
     finding_service.delete_finding(db, db_v)
     return None

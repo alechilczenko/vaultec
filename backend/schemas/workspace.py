@@ -14,7 +14,6 @@ class WorkspaceSetup(BaseSchema):
     client_name: str = Field(..., min_length=2, max_length=100, example="Client Name")
 
 class WorkspaceRead(BaseModel):
-    """Schema to display the active workspace status."""
     id: int
     name: Optional[str] = None
     client_name: Optional[str] = None

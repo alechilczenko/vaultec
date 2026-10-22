@@ -11,15 +11,9 @@ import database.models as models
 import schemas
 
 def get_all_notes(db: Session):
-    """
-    Retrieve all notes for the active workspace.
-    """
     return db.query(models.Note).all()
 
 def create_note(db: Session, note_data: schemas.NoteCreate):
-    """
-    Create a new note in the active workspace and save it to the database.
-    """
     note_title = note_data.title
     db_note = models.Note(
         title=note_data.title,
@@ -32,9 +26,6 @@ def create_note(db: Session, note_data: schemas.NoteCreate):
     return db_note
 
 def update_note(db: Session, db_note: models.Note, update_data: dict):
-    """
-    Apply updates to an existing note and commit the changes.
-    """
     original_title = db_note.title
 
     for key, value in update_data.items():
@@ -46,9 +37,6 @@ def update_note(db: Session, db_note: models.Note, update_data: dict):
     return db_note
 
 def delete_note(db: Session, db_note: models.Note):
-    """
-    Delete a note from the database with error handling and rollback.
-    """
     note_id = db_note.id
     note_title = db_note.title
 
@@ -66,9 +54,6 @@ def delete_note(db: Session, db_note: models.Note):
         )
 
 def get_note_or_404(db: Session, note_id: int):
-    """
-    Fetch a note from the active workspace or raise a 404 error if it doesn't exist.
-    """
     db_note = db.query(models.Note).filter(models.Note.id == note_id).first()
     if not db_note:
         raise HTTPException(

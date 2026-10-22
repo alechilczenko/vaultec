@@ -17,9 +17,6 @@ router = APIRouter(
 
 @router.get("", response_model=schemas.WorkspaceRead)
 def get_workspace_status(db: Session = Depends(get_db)):
-    """
-    Retrieves the current active workspace status and audit metadata.
-    """
     return workspace_service.get_active_workspace(db)
 
 
@@ -41,8 +38,5 @@ def get_workspace_status(db: Session = Depends(get_db)):
     },
 )
 def setup_workspace(data: schemas.WorkspaceSetup, db: Session = Depends(get_db)):
-    """
-    Initializes the empty workspace as an active assessment (name + client).
-    Returns 409 if an assessment is already active — call DELETE /admin/workspace/reset first.
-    """
+    """409 when an assessment is already active. Reset with DELETE /admin/workspace/reset."""
     return workspace_service.setup_workspace(db, data)

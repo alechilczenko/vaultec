@@ -24,9 +24,6 @@ def get_vulnerability_templates(db: Session = Depends(get_db), skip: int = Query
 
 @router.get("/stats")
 def get_template_stats(db: Session = Depends(get_db)):
-    """
-    Retrieves severity and category metrics for all template definitions.
-    """
     return template_service.get_template_stats(db)
 
 @router.get("/search", response_model=schemas.TemplatesRead)

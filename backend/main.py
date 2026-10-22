@@ -18,14 +18,12 @@ from loguru import logger
 from inspect import cleandoc
 import os
 
-# Initialize logging BEFORE creating the FastAPI app
-# setup_app_logging()
+# setup_app_logging is not called, so Loguru keeps its default handler.
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     try:
-        # Launch admin config
         setup_admin_user()
     except SystemExit:
         logger.info("Application stopped: environment validation failed")
@@ -93,7 +91,7 @@ app.add_middleware(
 # Authentication routes (unprotected)
 app.include_router(auth.router)
 
-# Protected routes (auth only — usable in library mode when workspace is empty)
+# Protected routes (auth only, usable in library mode when workspace is empty)
 app.include_router(workspace.router, dependencies=[Depends(get_current_user)])
 app.include_router(templates.router, dependencies=[Depends(get_current_user)])
 

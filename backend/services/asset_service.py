@@ -31,14 +31,13 @@ _RANK_TO_SEVERITY = {
 
 
 def severity_from_rank(rank) -> str | None:
-    """Maps an aggregated severity rank back to SeverityEnum, or None when unset."""
+    """None when the rank is unset."""
     if rank is None:
         return None
     return _RANK_TO_SEVERITY.get(int(rank))
 
 
 def _finding_summary_query(db: Session):
-    """Count and worst severity rank for findings joined to their definitions."""
     return db.query(
         func.count(models.Vulnerability.id),
         func.max(_SEVERITY_RANK),
@@ -61,10 +60,6 @@ def attach_finding_summary(db: Session, asset: models.Asset) -> models.Asset:
 
 
 def get_asset_by_id(db: Session, asset_id: int):
-    """
-    Retrieves an asset by its internal ID in the active workspace.
-    Raises a 404 error if the ID does not exist in the database.
-    """
     db_asset = db.query(models.Asset).filter(models.Asset.id == asset_id).first()
 
     if not db_asset:
@@ -73,10 +68,7 @@ def get_asset_by_id(db: Session, asset_id: int):
 
 
 def get_top_finding_for_asset(db: Session, asset_id: int):
-    """
-    Returns the highest-severity finding for an asset, or None if it has none.
-    Raises 404 if the asset does not exist.
-    """
+    """404 when the asset is missing. None when it has no findings."""
     exists = db.query(models.Asset.id).filter(models.Asset.id == asset_id).first()
     if not exists:
         raise HTTPException(status_code=404, detail="Asset not found in active workspace.")
@@ -111,15 +103,11 @@ def get_top_finding_for_asset(db: Session, asset_id: int):
 
 
 def get_asset_by_name_silent(db: Session, name: str):
-    """Retrieves an asset by its name without throwing exceptions if not found."""
     return db.query(models.Asset).filter(models.Asset.name == name).first()
 
 
 def get_all_assets(db: Session, skip: int = 0, limit: int = 100):
-    """Retrieves assets in the active workspace with finding summary and pagination.
-
-    Returns ``(assets, total)`` where ``total`` is the unpaginated asset count.
-    """
+    """Returns (assets, total). total ignores skip and limit."""
     total = db.query(func.count(models.Asset.id)).scalar() or 0
     findings_count = func.count(models.Vulnerability.id).label("findings_count")
     max_rank = func.max(_SEVERITY_RANK).label("max_rank")
@@ -146,9 +134,6 @@ def get_all_assets(db: Session, skip: int = 0, limit: int = 100):
     return assets, total
 
 def get_asset_stats(db: Session):
-    """
-    Calculates type counts for all assets in the active workspace.
-    """
     type_keys = {"URL": "urls", "IP": "ips", "Host": "hosts"}
 
     type_rows = db.query(
@@ -165,7 +150,6 @@ def get_asset_stats(db: Session):
     }
 
 def create_asset(db: Session, asset: schemas.AssetCreate):
-    """Creates a new asset after verifying the name is unique within the active workspace."""
     existing = get_asset_by_name_silent(db, asset.name)
     if existing:
         raise HTTPException(
@@ -188,7 +172,6 @@ def create_asset(db: Session, asset: schemas.AssetCreate):
 
 
 def update_asset(db: Session, db_asset: models.Asset, update_data: dict):
-    """Updates an asset, ensuring the new name does not conflict with existing ones."""
     original_name = db_asset.name
 
     if "name" in update_data:
@@ -215,7 +198,7 @@ def update_asset(db: Session, db_asset: models.Asset, update_data: dict):
 
 
 def import_assets(db: Session, assets: schemas.AssetBulkImport):
-    """Bulk imports assets into the active workspace, skipping existing names."""
+    """Skips names that are already registered."""
     added_names = []
     skipped_names = []
     
@@ -259,7 +242,6 @@ def import_assets(db: Session, assets: schemas.AssetBulkImport):
     }
 
 def delete_asset(db: Session, db_asset: models.Asset):
-    """Deletes an asset and handles potential integrity conflicts."""
     asset_name = db_asset.name
     try:
         db.delete(db_asset)

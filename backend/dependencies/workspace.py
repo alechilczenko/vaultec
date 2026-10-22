@@ -16,10 +16,7 @@ ACTIVE_ASSESSMENT_REQUIRED_DETAIL = (
 
 
 def require_active_workspace(db: Session = Depends(get_db)) -> models.Workspace:
-    """
-    Ensures the single workspace row is in status "active" (Operate mode).
-    Used to block engagement-scoped routes while the workspace is empty (library mode).
-    """
+    """409 while the workspace is empty, so engagement routes stay closed in library mode."""
     workspace = workspace_service.get_active_workspace(db)
     if workspace.status != "active":
         raise HTTPException(

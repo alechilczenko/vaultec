@@ -40,9 +40,6 @@ def _raise_duplicate_finding(asset_name: str, definition_title: str) -> None:
 
 
 def update_finding(db: Session, db_obj: models.Vulnerability, update_data: dict):
-    """
-    Applies updates to a finding instance with robust error handling.
-    """
     finding_id = db_obj.id
     finding_title = db_obj.definition.title if db_obj.definition else "Unknown Title"
 
@@ -63,9 +60,6 @@ def update_finding(db: Session, db_obj: models.Vulnerability, update_data: dict)
         )
 
 def delete_finding(db: Session, db_obj: models.Vulnerability):
-    """
-    Deletes a specific finding instance with error handling.
-    """
     finding_id = db_obj.id
     vuln_title = db_obj.definition.title if db_obj.definition else "Unknown Title"
     asset_name = db_obj.asset.name if db_obj.asset else "Unknown Asset"
@@ -84,9 +78,6 @@ def delete_finding(db: Session, db_obj: models.Vulnerability):
         )
     
 def get_finding_stats(db: Session):
-    """
-    Calculates severity and status counts for all findings in the active workspace.
-    """
     severity_order = ["critical", "high", "medium", "low", "info"]
     status_order = [s.value for s in FindingStatus]
 
@@ -116,9 +107,6 @@ def get_finding_stats(db: Session):
     }
 
 def get_finding_by_id(db: Session, finding_id: int):
-    """
-    Retrieves a finding by its ID in the active workspace.
-    """
     finding = db.query(models.Vulnerability).filter(
         models.Vulnerability.id == finding_id
     ).first()
@@ -131,13 +119,9 @@ def get_finding_by_id(db: Session, finding_id: int):
     return _prepare_finding_read(db, finding)
 
 def get_or_create_finding(db: Session, defn: models.VulnerabilityDefinition, asset: models.Asset, vulnerability_data: dict):
+    """400 if any finding already exists for that pair, including closed ones.
+    Concurrent inserts collide on uq_vulnerability_definition_asset.
     """
-    Creates a finding for the given asset and definition.
-    Raises 400 if any finding already exists for that pair (any status).
-    Relies on uq_vulnerability_definition_asset for concurrent races.
-    """
-
-    # 1. Look for an existing finding (any status) for this definition × asset
     existing_finding = db.query(models.Vulnerability).filter(
         models.Vulnerability.definition_id == defn.id,
         models.Vulnerability.asset_id == asset.id
@@ -145,8 +129,7 @@ def get_or_create_finding(db: Session, defn: models.VulnerabilityDefinition, ass
 
     if existing_finding:
         _raise_duplicate_finding(asset.name, defn.title)
-    
-    # 2. If no duplicate, create the new instance
+
     new_finding = models.Vulnerability(
         definition_id=defn.id,
         asset_id=asset.id,
@@ -172,10 +155,7 @@ def get_or_create_finding(db: Session, defn: models.VulnerabilityDefinition, ass
         )
 
 def process_vulnerability_entry(db: Session, vuln_data: schemas.VulnerabilityCreate):
-    """
-    Orchestrates the creation of a definition and its associated finding.
-    Logic shared between single and bulk imports.
-    """
+    """Shared by POST /findings/create and POST /findings/import."""
     target_asset = asset_service.get_asset_by_name_silent(db, vuln_data.asset_name)
 
     if not target_asset:
@@ -185,32 +165,24 @@ def process_vulnerability_entry(db: Session, vuln_data: schemas.VulnerabilityCre
             detail=f"Asset '{vuln_data.asset_name}' not found. Please register it first."
         )
 
-    # 1. Prepare Definition Data
     def_data = vuln_data.model_dump(exclude={
         "asset_name", "status", "evidence", "discovered_by", "notes"
     })
 
     v_title = def_data.pop("title")
 
-    # 2. Get/Create Definition
     target_defn = template_service.get_or_create_definition(db, title=v_title, **def_data)
 
-    # 3. Prepare Finding Data
     finding_info = {
         "status": vuln_data.status,
         "evidence": None if vuln_data.evidence is None else vuln_data.evidence.model_dump(mode="json"),
         "discovered_by": vuln_data.discovered_by,
         "notes": vuln_data.notes,
     }
-    # 4. Create Finding
     return get_or_create_finding(db, target_defn, target_asset, finding_info)
 
 def get_vulnerabilities_joined(db: Session, skip: int = 0, limit: int = 100, search_query: str = None):
-    """
-    Retrieves vulnerabilities joined with assets and definitions for the active workspace.
-
-    Returns ``(rows, total)`` where ``total`` matches the same filters, ignoring skip/limit.
-    """
+    """Returns (rows, total). total uses the same filters and ignores skip and limit."""
     base = (
         db.query(models.Vulnerability.id)
         .join(models.Asset, models.Vulnerability.asset_id == models.Asset.id)
@@ -250,9 +222,7 @@ def get_vulnerabilities_joined(db: Session, skip: int = 0, limit: int = 100, sea
 
 
 def bulk_process_vulnerabilities(db: Session, import_data: schemas.VulnerabilityBulkImport):
-    """
-    Processes a bulk array of vulnerabilities for the active workspace.
-    """
+    """A failed row is recorded and the rest of the batch continues."""
     processed_count = 0
     errors = []
 

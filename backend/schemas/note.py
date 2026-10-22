@@ -11,7 +11,6 @@ from .common import SafeIntID
 
 
 def sanitize_text(v: Any, strip: bool = False) -> Any:
-    """Validates control characters and optionally applies whitespace stripping."""
     if isinstance(v, str):
         if re.search(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', v):
             raise ValueError("Null bytes or control characters are not allowed")

@@ -12,10 +12,7 @@ import schemas
 
 
 def get_active_workspace(db: Session) -> models.Workspace:
-    """
-    Retrieves the current active workspace state (Row ID: 1).
-    Creates the default empty workspace row if it doesn't exist yet.
-    """
+    """Creates the id=1 row as empty when it is missing."""
     workspace = db.query(models.Workspace).filter(models.Workspace.id == 1).first()
     if not workspace:
         workspace = models.Workspace(id=1, status="empty")
@@ -31,10 +28,7 @@ ASSESSMENT_ALREADY_ACTIVE_DETAIL = (
 
 
 def setup_workspace(db: Session, workspace_data: schemas.WorkspaceSetup) -> models.Workspace:
-    """
-    Initializes the singleton workspace from empty → active.
-    Rejects setup when an assessment is already active (reset first).
-    """
+    """409 when status is already active. Reset before setup."""
     workspace = get_active_workspace(db)
 
     if workspace.status == "active":

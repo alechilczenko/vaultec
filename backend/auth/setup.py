@@ -14,22 +14,16 @@ from .utils import hash_password
 from loguru import logger
 
 def is_password_strong(password: str):
-    """
-    Check if the password meets the minimum security requirements.
-    """
     rules = [
-        lambda s: len(s) >= 12,                          # Minimum length
-        lambda s: bool(re.search(r"[A-Z]", s)),          # At least one uppercase letter
-        lambda s: bool(re.search(r"[a-z]", s)),          # At least one lowercase letter
-        lambda s: bool(re.search(r"\d", s)),             # At least one digit
-        lambda s: bool(re.search(r"[!@#$%^&*(),.?\":{}|<>]", s)) # At least one symbol
+        lambda s: len(s) >= 12,
+        lambda s: bool(re.search(r"[A-Z]", s)),
+        lambda s: bool(re.search(r"[a-z]", s)),
+        lambda s: bool(re.search(r"\d", s)),
+        lambda s: bool(re.search(r"[!@#$%^&*(),.?\":{}|<>]", s))
     ]
     return all(rule(password) for rule in rules)
 
 def validate_environment():
-    """
-    Validate that required environment variables are set and secure.
-    """
     load_dotenv()
     
     secret_key = os.getenv("SECRET_KEY")
@@ -54,7 +48,6 @@ def validate_environment():
     return admin_password
 
 def setup_admin_user():
-    # Validate environment and get the secure password
     admin_password = validate_environment()
 
     db = SessionLocal()
@@ -71,7 +64,6 @@ def setup_admin_user():
             db.refresh(admin)
             logger.info("Admin user created successfully")
         else:
-            # Update password from environment variable
             admin.hashed_password = hash_password(admin_password)
             db.commit()
             logger.info("Admin password updated from the environment variable")

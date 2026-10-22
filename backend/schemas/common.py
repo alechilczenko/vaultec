@@ -12,7 +12,6 @@ MAX_ID_VALUE = 1_000_000
 
 SafeIntID = Annotated[int, Field(ge=1, le=MAX_ID_VALUE)]
 
-# This handles global string cleaning (stripping and min length)
 class BaseSchema(BaseModel):
     model_config = ConfigDict(
         str_strip_whitespace=True,
@@ -40,7 +39,7 @@ class BaseSchema(BaseModel):
 # Specific type for list items (like tags) to prevent [" ", "valid"]
 CleanString = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
-# Finding / template tags — short labels (cwe-89, owasp-a03)
+# Finding / template tags: short labels (cwe-89, owasp-a03)
 TagString = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=24)
 ]
