@@ -87,7 +87,7 @@ def get_finding_stats(db: Session):
     """
     Calculates severity and status counts for all findings in the active workspace.
     """
-    severity_order = ["critical", "high", "medium", "low", "informative"]
+    severity_order = ["critical", "high", "medium", "low", "info"]
     status_order = [s.value for s in FindingStatus]
 
     severity_rows = db.query(

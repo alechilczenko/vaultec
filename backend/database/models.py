@@ -47,6 +47,7 @@ class VulnerabilityDefinition(Base):
     id = Column(Integer, primary_key=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     title = Column(String, unique=True, index=True)
+    # Existing DBs: scripts/sql/rename_informative_severity_to_info.sql
     severity = Column(String, nullable=False)
     # Existing DBs: scripts/sql/add_category_to_vulnerability_definitions.sql
     category = Column(String(100), nullable=False, server_default="General")

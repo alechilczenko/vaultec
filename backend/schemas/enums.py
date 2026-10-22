@@ -7,7 +7,7 @@ Licensed under GNU GPLv3 - See the LICENSE file for details
 import enum
 
 class SeverityEnum(str, enum.Enum):
-    informative = "informative"
+    info = "info"
     low = "low"
     medium = "medium"
     high = "high"

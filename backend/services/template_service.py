@@ -17,7 +17,7 @@ def get_template_stats(db: Session):
     """
     Calculates severity and category counts for all template definitions.
     """
-    severity_order = ["critical", "high", "medium", "low", "informative"]
+    severity_order = ["critical", "high", "medium", "low", "info"]
 
     severity_rows = db.query(
         models.VulnerabilityDefinition.severity,

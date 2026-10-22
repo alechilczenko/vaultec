@@ -17,7 +17,7 @@ _SEVERITY_RANK = case(
     (models.VulnerabilityDefinition.severity == "high", 4),
     (models.VulnerabilityDefinition.severity == "medium", 3),
     (models.VulnerabilityDefinition.severity == "low", 2),
-    (models.VulnerabilityDefinition.severity == "informative", 1),
+    (models.VulnerabilityDefinition.severity == "info", 1),
     else_=0,
 )
 
@@ -26,7 +26,7 @@ _RANK_TO_SEVERITY = {
     4: "high",
     3: "medium",
     2: "low",
-    1: "informative",
+    1: "info",
 }
 
 
