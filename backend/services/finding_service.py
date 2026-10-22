@@ -48,9 +48,9 @@ def update_finding(db: Session, db_obj: models.Vulnerability, update_data: dict)
         db.refresh(db_obj)
         logger.info(f"Finding updated: '{finding_title}' (ID: {finding_id})")
         return _prepare_finding_read(db, db_obj)
-    except Exception as e:
+    except Exception:
         db.rollback()
-        logger.error(f"Failed to update finding: '{finding_title}' (ID: {finding_id}): {str(e)}")
+        logger.exception(f"Failed to update finding '{finding_title}' (ID: {finding_id})")
         raise HTTPException(
             status_code=500,
             detail="Could not update this finding."
@@ -66,9 +66,9 @@ def delete_finding(db: Session, db_obj: models.Vulnerability):
         db.commit()
         logger.info(f"Finding deleted: '{vuln_title}' on Asset '{asset_name}' (ID: {finding_id})")
         return True 
-    except Exception as e:
+    except Exception:
         db.rollback()
-        logger.error(f"Failed to delete finding '{vuln_title}' (ID: {finding_id}): {str(e)}")
+        logger.exception(f"Failed to delete finding '{vuln_title}' (ID: {finding_id})")
         raise HTTPException(
             status_code=500,
             detail="Could not delete this finding."
@@ -143,9 +143,9 @@ def get_or_create_finding(db: Session, defn: models.VulnerabilityDefinition, ass
         db.rollback()
         _raise_duplicate_finding(asset.name, defn.title)
 
-    except Exception as e:
+    except Exception:
         db.rollback()
-        logger.error(f"Failed to persist finding for Asset '{asset.name}': {str(e)}")
+        logger.exception(f"Failed to save finding for asset '{asset.name}'")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Could not save this finding."
@@ -238,9 +238,9 @@ def bulk_process_vulnerabilities(db: Session, import_data: schemas.Vulnerability
             })
             continue
 
-        except Exception as e:
+        except Exception:
             db.rollback()
-            logger.error(f"Unexpected error in bulk process for {vuln.asset_name} | {vuln.title}: {str(e)}")
+            logger.exception(f"Failed to import finding '{vuln.title}' on '{vuln.asset_name}'")
             errors.append({
                 "asset": vuln.asset_name,
                 "title": vuln.title,

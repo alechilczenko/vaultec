@@ -47,9 +47,9 @@ def setup_workspace(db: Session, workspace_data: schemas.WorkspaceSetup) -> mode
         db.refresh(workspace)
         logger.info(f"Workspace initialized for client: '{workspace.client_name}' ({workspace.name})")
         return workspace
-    except Exception as e:
+    except Exception:
         db.rollback()
-        logger.error(f"Failed to setup workspace: {str(e)}")
+        logger.exception("Failed to set up the assessment")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Could not set up the assessment."

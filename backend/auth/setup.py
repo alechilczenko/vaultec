@@ -62,14 +62,14 @@ def setup_admin_user():
             db.add(admin)
             db.commit()
             db.refresh(admin)
-            logger.info("Admin user created successfully")
+            logger.info("Admin user created")
         else:
             admin.hashed_password = hash_password(admin_password)
             db.commit()
             logger.info("Admin password updated from the environment variable")
 
-    except Exception as e:
-        logger.error(f"Database error during admin setup: {e}")
+    except Exception:
+        logger.exception("Failed to set up the admin user")
         sys.exit(1)
         
     finally:

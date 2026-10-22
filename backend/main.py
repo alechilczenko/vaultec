@@ -4,6 +4,10 @@ Copyright (C) 2026 Alejandro Chilczenko
 Licensed under GNU GPLv3 - See the LICENSE file for details
 """
 
+from config.logger_config import setup_app_logging
+
+setup_app_logging()
+
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -12,16 +16,15 @@ from database.models import Base
 from auth.setup import setup_admin_user
 from auth.utils import get_current_user
 from dependencies.workspace import require_active_workspace
-from config.logger_config import setup_app_logging
 from routes import admin, assets, auth, findings, notes, templates, workspace
 from loguru import logger
 from inspect import cleandoc
 import os
 
-# setup_app_logging is not called, so Loguru keeps its default handler.
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Uvicorn's reloader calls dictConfig again before startup.
+    setup_app_logging()
     Base.metadata.create_all(bind=engine)
     try:
         setup_admin_user()

@@ -223,7 +223,7 @@ def import_assets(db: Session, assets: schemas.AssetBulkImport):
         try:
             db.add_all(new_assets_objs)
             db.commit()
-            logger.info(f"Bulk import successful: {len(added_names)} assets added")
+            logger.info(f"Imported {len(added_names)} assets")
         except Exception:
             db.rollback()
             logger.exception("Bulk asset import failed")
@@ -246,7 +246,7 @@ def delete_asset(db: Session, db_asset: models.Asset):
     try:
         db.delete(db_asset)
         db.commit()
-        logger.info(f"Asset '{asset_name}' deleted successfully")
+        logger.info(f"Asset '{asset_name}' deleted")
     except IntegrityError:
         db.rollback()
         logger.warning(f"Deletion blocked: Asset '{asset_name}' has associated findings")
@@ -254,9 +254,9 @@ def delete_asset(db: Session, db_asset: models.Asset):
             status_code=400,
             detail=f"Cannot delete '{asset_name}' until its findings are removed."
         )
-    except Exception as e:
+    except Exception:
         db.rollback()
-        logger.error(f"Unexpected error deleting asset '{asset_name}': {str(e)}")
+        logger.exception(f"Failed to delete asset '{asset_name}'")
         raise HTTPException(
             status_code=500,
             detail="Could not delete this asset."

@@ -185,7 +185,7 @@ def import_definitions(db: Session, data: schemas.TemplatesImport):
         logger.info(f"Templates bulk import finished: {len(created_titles)} created, {len(updated_titles)} updated")
     except Exception:
         db.rollback()
-        logger.exception("Critical error during templates bulk import")
+        logger.exception("Failed to import templates")
         raise HTTPException(status_code=500, detail="Could not import these templates.")
 
     return {
@@ -215,9 +215,9 @@ def delete_definition(db: Session, def_id: int):
             status_code=400,
             detail=f"Cannot delete '{title}' until its findings are removed."
         )
-    except Exception as e:
+    except Exception:
         db.rollback()
-        logger.error(f"Unexpected error deleting definition '{title}': {str(e)}")
+        logger.exception(f"Failed to delete template '{title}'")
         raise HTTPException(
             status_code=500,
             detail="Could not delete this template."

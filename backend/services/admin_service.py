@@ -29,9 +29,9 @@ def reset_active_workspace(db: Session):
 
         db.commit()
         logger.warning("Active workspace cleared and reset to empty state.")
-    except Exception as e:
+    except Exception:
         db.rollback()
-        logger.error(f"Critical error during workspace reset: {str(e)}")
+        logger.exception("Failed to reset the workspace")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Could not reset the workspace."
@@ -42,7 +42,7 @@ def clear_global_templates(db: Session):
     try:
         db.query(models.VulnerabilityDefinition).delete()
         db.commit()
-        logger.warning("Global vulnerability templates have been cleared.")
+        logger.warning("Template library cleared.")
     except IntegrityError:
         db.rollback()
         logger.warning("Templates clear blocked: definitions still referenced by findings")
@@ -50,9 +50,9 @@ def clear_global_templates(db: Session):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=TEMPLATES_IN_USE_DETAIL,
         )
-    except Exception as e:
+    except Exception:
         db.rollback()
-        logger.error(f"Templates clear failed: {str(e)}")
+        logger.exception("Failed to clear the template library")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Could not clear the template library.",

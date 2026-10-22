@@ -29,7 +29,7 @@ def authenticate_user(db: Session, username: str, password: str):
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    logger.info(f"User authenticated successfully: '{username}'")
+    logger.info(f"User authenticated: '{username}'")
     return user
 
 def verify_user_token(current_user: models.User):

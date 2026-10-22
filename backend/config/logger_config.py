@@ -18,26 +18,37 @@ class InterceptHandler(logging.Handler):
 
         # Skip logging frames so Loguru attributes the real caller.
         frame, depth = logging.currentframe(), 2
-        while frame.f_code.co_filename == logging.__file__:
+        while frame is not None and frame.f_code.co_filename == logging.__file__:
             frame = frame.f_back
             depth += 1
 
-        logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
+        logger.bind(logger_name=record.name).opt(depth=depth, exception=record.exc_info).log(
+            level, record.getMessage()
+        )
+
+def _log_format(record):
+    if str(record["extra"].get("logger_name", "")).startswith("uvicorn"):
+        return "{time:HH:mm:ss} | <level>{level: <8}</level> | {message}\n"
+    return "{time:HH:mm:ss} | <level>{level: <8}</level> | {file.name}:{line} | {message}\n"
+
+def _capture(name: str) -> None:
+    log = logging.getLogger(name)
+    log.handlers = [InterceptHandler()]
+    log.propagate = False
 
 def setup_app_logging():
-    """Route Uvicorn, SQLAlchemy, and the root logger through Loguru."""
+    """One stdout sink. Uvicorn keeps no handler of its own."""
     logger.remove()
-
     logger.add(
         sys.stdout,
-        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{message}</cyan>",
+        format=_log_format,
         level="INFO",
-        enqueue=True  # keep logging off the request thread
+        backtrace=True,
+        diagnose=False,
     )
 
-    logging.getLogger("uvicorn").handlers = [InterceptHandler()]
-    logging.getLogger("uvicorn.access").handlers = [InterceptHandler()]
+    for name in ("uvicorn", "uvicorn.error", "uvicorn.access", "uvicorn.asgi"):
+        _capture(name)
+    _capture("sqlalchemy.engine")
 
-    logging.getLogger("sqlalchemy.engine").handlers = [InterceptHandler()]
-
-    logging.basicConfig(handlers=[InterceptHandler()], level=0, force=True)
+    logging.basicConfig(handlers=[InterceptHandler()], level=logging.INFO, force=True)

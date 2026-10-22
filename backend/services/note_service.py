@@ -22,7 +22,7 @@ def create_note(db: Session, note_data: schemas.NoteCreate):
     db.add(db_note)
     db.commit()
     db.refresh(db_note)
-    logger.info(f"Note created successfully: '{note_title}' (ID: {db_note.id})")
+    logger.info(f"Note created: '{note_title}' (ID: {db_note.id})")
     return db_note
 
 def update_note(db: Session, db_note: models.Note, update_data: dict):
@@ -33,7 +33,7 @@ def update_note(db: Session, db_note: models.Note, update_data: dict):
     
     db.commit()
     db.refresh(db_note)
-    logger.info(f"Note '{original_title}' updated successfully")
+    logger.info(f"Note '{original_title}' updated")
     return db_note
 
 def delete_note(db: Session, db_note: models.Note):
@@ -42,11 +42,11 @@ def delete_note(db: Session, db_note: models.Note):
     try:
         db.delete(db_note)
         db.commit()
-        logger.info(f"Note '{note_title}' deleted successfully")
+        logger.info(f"Note '{note_title}' deleted")
         return True
-    except Exception as e:
+    except Exception:
         db.rollback()
-        logger.error(f"Unexpected error deleting note '{note_title}': {str(e)}")
+        logger.exception(f"Failed to delete note '{note_title}'")
         raise HTTPException(
             status_code=500,
             detail="Could not delete this note."
