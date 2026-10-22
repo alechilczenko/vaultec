@@ -23,10 +23,7 @@ def _prepare_finding_read(db: Session, finding: models.Vulnerability) -> models.
 
 
 def _duplicate_finding_detail(asset_name: str, definition_title: str) -> str:
-    return (
-        f"Duplicate Finding: The asset '{asset_name}' already has an active record "
-        f"for '{definition_title}'. Duplicate prevented."
-    )
+    return f"{asset_name} already has a finding for '{definition_title}'."
 
 
 def _raise_duplicate_finding(asset_name: str, definition_title: str) -> None:
@@ -56,7 +53,7 @@ def update_finding(db: Session, db_obj: models.Vulnerability, update_data: dict)
         logger.error(f"Failed to update finding: '{finding_title}' (ID: {finding_id}): {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail=f"Update Error: Could not update finding ID {finding_id}. Check if the data format is correct."
+            detail="Could not update this finding."
         )
 
 def delete_finding(db: Session, db_obj: models.Vulnerability):
@@ -74,7 +71,7 @@ def delete_finding(db: Session, db_obj: models.Vulnerability):
         logger.error(f"Failed to delete finding '{vuln_title}' (ID: {finding_id}): {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail=f"Database Error: Could not delete finding ID {finding_id}. Transaction rolled back."
+            detail="Could not delete this finding."
         )
     
 def get_finding_stats(db: Session):
@@ -114,7 +111,7 @@ def get_finding_by_id(db: Session, finding_id: int):
     if not finding:
         raise HTTPException(
             status_code=404,
-            detail=f"Finding Error: Vulnerability instance with ID {finding_id} not found."
+            detail=f"Finding {finding_id} was not found."
         )
     return _prepare_finding_read(db, finding)
 
@@ -151,7 +148,7 @@ def get_or_create_finding(db: Session, defn: models.VulnerabilityDefinition, ass
         logger.error(f"Failed to persist finding for Asset '{asset.name}': {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Database Error: Failed to persist the new finding. Transaction rolled back."
+            detail="Could not save this finding."
         )
 
 def process_vulnerability_entry(db: Session, vuln_data: schemas.VulnerabilityCreate):
@@ -247,7 +244,7 @@ def bulk_process_vulnerabilities(db: Session, import_data: schemas.Vulnerability
             errors.append({
                 "asset": vuln.asset_name,
                 "title": vuln.title,
-                "reason": "Internal Server Error: Unexpected exception occurred",
+                "reason": "Could not import this row.",
                 "status_code": 500
             })
             continue

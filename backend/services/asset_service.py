@@ -227,7 +227,7 @@ def import_assets(db: Session, assets: schemas.AssetBulkImport):
         except Exception:
             db.rollback()
             logger.exception("Bulk asset import failed")
-            raise HTTPException(status_code=500, detail="Database error during import.")
+            raise HTTPException(status_code=500, detail="Could not import these assets.")
 
     return {
         "message": "Import completed",
@@ -252,12 +252,12 @@ def delete_asset(db: Session, db_asset: models.Asset):
         logger.warning(f"Deletion blocked: Asset '{asset_name}' has associated findings")
         raise HTTPException(
             status_code=400,
-            detail=f"Dependency Error: Cannot delete '{asset_name}'. It has associated findings that must be removed first."
+            detail=f"Cannot delete '{asset_name}' until its findings are removed."
         )
     except Exception as e:
         db.rollback()
         logger.error(f"Unexpected error deleting asset '{asset_name}': {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail="Internal Server Error: An unexpected error occurred while deleting the asset."
+            detail="Could not delete this asset."
         )

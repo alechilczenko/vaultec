@@ -56,7 +56,7 @@ def get_definition_or_404(db: Session, def_id: int):
     if not definition:
         raise HTTPException(
             status_code=404,
-            detail=f"Template Error: Vulnerability definition with ID {def_id} not found."
+            detail=f"Template {def_id} was not found."
         )
     return definition
 
@@ -79,7 +79,7 @@ def save_definition(db: Session, new_def: models.VulnerabilityDefinition):
         logger.exception(f"Failed to save definition: '{def_title}'")
         raise HTTPException(
             status_code=500,
-            detail="Database Error: Could not persist data.",
+            detail="Could not save this template.",
         )
     
 def search_definitions(db: Session, query: str):
@@ -103,8 +103,9 @@ def create_definition_strict(db: Session, data: schemas.TemplateEntryCreate):
         logger.warning(f"Definition creation blocked: '{title}' already exists in templates")
         raise HTTPException(
             status_code=400,
-            detail=f"Template Error: A definition with the title '{data.title.strip()}' already exists in the database.")
-    
+            detail=f"A template titled '{title}' already exists.",
+        )
+
     new_def = models.VulnerabilityDefinition(
         title=data.title.strip(),
         severity=data.severity,
@@ -140,7 +141,7 @@ def update_definition(db: Session, def_id: int, update_data: dict):
             logger.warning(f"Template update blocked: Title '{clean_title}' already exists (ID: {existing.id})")
             raise HTTPException(
                 status_code=400, 
-                detail=f"Template Conflict: The title '{clean_title}' is already in use by definition ID {existing.id}."
+                detail=f"A template titled '{clean_title}' already exists."
             )
         update_data["title"] = clean_title
 
@@ -185,7 +186,7 @@ def import_definitions(db: Session, data: schemas.TemplatesImport):
     except Exception:
         db.rollback()
         logger.exception("Critical error during templates bulk import")
-        raise HTTPException(status_code=500, detail="Database error during import.")
+        raise HTTPException(status_code=500, detail="Could not import these templates.")
 
     return {
         "message": "Templates import completed successfully.",
@@ -212,16 +213,12 @@ def delete_definition(db: Session, def_id: int):
         logger.warning(f"Deletion blocked: Definition '{title}' is in use by active findings")
         raise HTTPException(
             status_code=400,
-            detail=(
-                f"Template Dependency Error: Cannot delete '{title}'. "
-                "There are active findings using this definition. "
-                "Remove those findings first."
-            )
+            detail=f"Cannot delete '{title}' until its findings are removed."
         )
     except Exception as e:
         db.rollback()
         logger.error(f"Unexpected error deleting definition '{title}': {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail="Database Error: An unexpected error occurred while deleting the definition."
+            detail="Could not delete this template."
         )

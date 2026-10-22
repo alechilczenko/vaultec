@@ -37,7 +37,6 @@ def update_note(db: Session, db_note: models.Note, update_data: dict):
     return db_note
 
 def delete_note(db: Session, db_note: models.Note):
-    note_id = db_note.id
     note_title = db_note.title
 
     try:
@@ -50,7 +49,7 @@ def delete_note(db: Session, db_note: models.Note):
         logger.error(f"Unexpected error deleting note '{note_title}': {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail=f"Delete Error: Could not delete note ID {note_id}. Transaction rolled back."
+            detail="Could not delete this note."
         )
 
 def get_note_or_404(db: Session, note_id: int):
@@ -58,6 +57,6 @@ def get_note_or_404(db: Session, note_id: int):
     if not db_note:
         raise HTTPException(
             status_code=404, 
-            detail=f"Note Error: Note with ID {note_id} was not found in active workspace."
+            detail=f"Note {note_id} was not found."
         )
     return db_note

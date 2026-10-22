@@ -52,5 +52,5 @@ def setup_workspace(db: Session, workspace_data: schemas.WorkspaceSetup) -> mode
         logger.error(f"Failed to setup workspace: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Could not setup active workspace context."
+            detail="Could not set up the assessment."
         )

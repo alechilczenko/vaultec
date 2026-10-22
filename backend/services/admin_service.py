@@ -34,7 +34,7 @@ def reset_active_workspace(db: Session):
         logger.error(f"Critical error during workspace reset: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Critical error while resetting active workspace."
+            detail="Could not reset the workspace."
         )
 
 def clear_global_templates(db: Session):
@@ -55,5 +55,5 @@ def clear_global_templates(db: Session):
         logger.error(f"Templates clear failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Could not clear the global templates.",
+            detail="Could not clear the template library.",
         )
