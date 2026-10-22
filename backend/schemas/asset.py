@@ -25,6 +25,7 @@ class AssetRead(BaseModel):
     notes: Optional[str] = None
     created_at: datetime
     findings_count: int = 0
+    max_severity: Optional[SeverityEnum] = None
 
     model_config = ConfigDict(from_attributes=True)
 

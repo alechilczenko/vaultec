@@ -16,9 +16,9 @@ from loguru import logger
 
 
 def _prepare_finding_read(db: Session, finding: models.Vulnerability) -> models.Vulnerability:
-    """Ensures nested asset carries findings_count for AssetRead serialization."""
+    """Ensures nested asset carries findings_count and max_severity for AssetRead."""
     if finding.asset is not None:
-        asset_service.attach_findings_count(db, finding.asset)
+        asset_service.attach_finding_summary(db, finding.asset)
     return finding
 
 

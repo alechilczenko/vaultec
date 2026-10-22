@@ -11,6 +11,7 @@ from fastapi import HTTPException
 from loguru import logger
 import database.models as models
 import schemas
+
 _SEVERITY_RANK = case(
     (models.VulnerabilityDefinition.severity == "critical", 5),
     (models.VulnerabilityDefinition.severity == "high", 4),
@@ -20,15 +21,42 @@ _SEVERITY_RANK = case(
     else_=0,
 )
 
+_RANK_TO_SEVERITY = {
+    5: "critical",
+    4: "high",
+    3: "medium",
+    2: "low",
+    1: "informative",
+}
 
-def attach_findings_count(db: Session, asset: models.Asset) -> models.Asset:
-    """Attaches total findings count (all statuses) onto the asset instance."""
-    count = (
-        db.query(func.count(models.Vulnerability.id))
+
+def severity_from_rank(rank) -> str | None:
+    """Maps an aggregated severity rank back to SeverityEnum, or None when unset."""
+    if rank is None:
+        return None
+    return _RANK_TO_SEVERITY.get(int(rank))
+
+
+def _finding_summary_query(db: Session):
+    """Count and worst severity rank for findings joined to their definitions."""
+    return db.query(
+        func.count(models.Vulnerability.id),
+        func.max(_SEVERITY_RANK),
+    ).outerjoin(
+        models.VulnerabilityDefinition,
+        models.Vulnerability.definition_id == models.VulnerabilityDefinition.id,
+    )
+
+
+def attach_finding_summary(db: Session, asset: models.Asset) -> models.Asset:
+    """Attaches findings_count and max_severity for AssetRead serialization."""
+    count, rank = (
+        _finding_summary_query(db)
         .filter(models.Vulnerability.asset_id == asset.id)
-        .scalar()
-    ) or 0
-    asset.findings_count = count
+        .one()
+    )
+    asset.findings_count = count or 0
+    asset.max_severity = severity_from_rank(rank)
     return asset
 
 
@@ -41,7 +69,7 @@ def get_asset_by_id(db: Session, asset_id: int):
 
     if not db_asset:
         raise HTTPException(status_code=404, detail="Asset not found in active workspace.")
-    return attach_findings_count(db, db_asset)
+    return attach_finding_summary(db, db_asset)
 
 
 def get_top_finding_for_asset(db: Session, asset_id: int):
@@ -88,17 +116,22 @@ def get_asset_by_name_silent(db: Session, name: str):
 
 
 def get_all_assets(db: Session, skip: int = 0, limit: int = 100):
-    """Retrieves assets in the active workspace with findings counts and pagination.
+    """Retrieves assets in the active workspace with finding summary and pagination.
 
     Returns ``(assets, total)`` where ``total`` is the unpaginated asset count.
     """
     total = db.query(func.count(models.Asset.id)).scalar() or 0
     findings_count = func.count(models.Vulnerability.id).label("findings_count")
+    max_rank = func.max(_SEVERITY_RANK).label("max_rank")
     rows = (
-        db.query(models.Asset, findings_count)
+        db.query(models.Asset, findings_count, max_rank)
         .outerjoin(
             models.Vulnerability,
             models.Vulnerability.asset_id == models.Asset.id,
+        )
+        .outerjoin(
+            models.VulnerabilityDefinition,
+            models.Vulnerability.definition_id == models.VulnerabilityDefinition.id,
         )
         .group_by(models.Asset.id)
         .offset(skip)
@@ -106,8 +139,9 @@ def get_all_assets(db: Session, skip: int = 0, limit: int = 100):
         .all()
     )
     assets = []
-    for asset, count in rows:
+    for asset, count, rank in rows:
         asset.findings_count = count
+        asset.max_severity = severity_from_rank(rank)
         assets.append(asset)
     return assets, total
 
@@ -148,6 +182,7 @@ def create_asset(db: Session, asset: schemas.AssetCreate):
     db.commit()
     db.refresh(new_asset)
     new_asset.findings_count = 0
+    new_asset.max_severity = None
     logger.info(f"Asset created: {asset.name} (ID: {new_asset.id})")
     return new_asset
 
@@ -176,7 +211,7 @@ def update_asset(db: Session, db_asset: models.Asset, update_data: dict):
     db.commit()
     db.refresh(db_asset)
     logger.info(f"Asset '{original_name}' (ID: {db_asset.id}) updated to '{db_asset.name}'")
-    return attach_findings_count(db, db_asset)
+    return attach_finding_summary(db, db_asset)
 
 
 def import_assets(db: Session, assets: schemas.AssetBulkImport):
