@@ -87,7 +87,7 @@ def update_vulnerability_instance(
     Updates an existing finding in the active workspace.
     """
     db_v = finding_service.get_finding_by_id(db, id)
-    update_data = data.model_dump(exclude_unset=True)
+    update_data = data.model_dump(exclude_unset=True, mode="json")
     return finding_service.update_finding(db, db_v, update_data)
 
 

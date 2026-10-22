@@ -69,7 +69,7 @@ class Vulnerability(Base):
     )
     id = Column(Integer, primary_key=True)
     status = Column(String, default="open")
-    evidence_type = Column(String) # "http", "terminal", "log"
+    # { packages: [{ type, items: [{ label, content }] }] }
     evidence = Column(JSONB, nullable=True)
     discovered_by = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
