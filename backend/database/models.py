@@ -1,7 +1,7 @@
 """
 Vulnerability Management Platform
 Copyright (C) 2026 Alejandro Chilczenko
-Licensed under GNU GPLv3 - See the LICENSE file for details
+Licensed under GNU AGPLv3 - See the LICENSE file for details
 """
 
 from sqlalchemy import Boolean, Column, DateTime, Integer, String, ForeignKey, Text, UniqueConstraint, func, ARRAY
