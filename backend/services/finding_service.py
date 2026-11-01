@@ -1,7 +1,7 @@
 """
 Vulnerability Management Platform
 Copyright (C) 2026 Alejandro Chilczenko
-Licensed under GNU GPLv3 - See the LICENSE file for details
+Licensed under GNU AGPLv3 - See the LICENSE file for details
 """
 
 from sqlalchemy.orm import Session
@@ -202,7 +202,9 @@ def get_vulnerabilities_joined(db: Session, skip: int = 0, limit: int = 100, sea
         models.Asset.name.label("asset_name"),
         models.VulnerabilityDefinition.title,
         models.VulnerabilityDefinition.severity,
+        models.VulnerabilityDefinition.category,
         models.Vulnerability.status,
+        models.Vulnerability.discovered_by,
         models.Vulnerability.id.label("instance_id"),
     ).join(models.Asset, models.Vulnerability.asset_id == models.Asset.id).join(
         models.VulnerabilityDefinition,
