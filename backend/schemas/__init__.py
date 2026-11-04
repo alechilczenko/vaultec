@@ -8,6 +8,7 @@ from .vulnerability import (
     VulnerabilityDefinitionUpdate,
     VulnerabilityCreate,
     VulnerabilityInstanceUpdate,
+    VulnerabilityRelink,
     VulnerabilityByAsset,
     VulnerabilityFullRead,
     TemplatesImport,

@@ -56,6 +56,47 @@ def update_finding(db: Session, db_obj: models.Vulnerability, update_data: dict)
             detail="Could not update this finding."
         )
 
+
+def relink_finding(db: Session, finding_id: int, definition_id: int):
+    """Re-point a finding at another template. Instance fields stay untouched."""
+    finding = get_finding_by_id(db, finding_id)
+    new_defn = template_service.get_definition_or_404(db, definition_id)
+
+    if finding.definition_id == new_defn.id:
+        return finding
+
+    asset_name = finding.asset.name if finding.asset else "Unknown Asset"
+    conflict = db.query(models.Vulnerability).filter(
+        models.Vulnerability.definition_id == new_defn.id,
+        models.Vulnerability.asset_id == finding.asset_id,
+        models.Vulnerability.id != finding.id,
+    ).first()
+    if conflict:
+        _raise_duplicate_finding(asset_name, new_defn.title)
+
+    old_title = finding.definition.title if finding.definition else "Unknown Title"
+    finding.definition_id = new_defn.id
+    try:
+        db.commit()
+        db.refresh(finding)
+        logger.info(
+            f"Finding relinked: '{old_title}' → '{new_defn.title}' "
+            f"on '{asset_name}' (ID: {finding_id})"
+        )
+        return _prepare_finding_read(db, finding)
+    except IntegrityError:
+        db.rollback()
+        _raise_duplicate_finding(asset_name, new_defn.title)
+    except Exception:
+        db.rollback()
+        logger.exception(
+            f"Failed to relink finding (ID: {finding_id}) to definition {definition_id}"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not relink this finding.",
+        )
+
 def delete_finding(db: Session, db_obj: models.Vulnerability):
     finding_id = db_obj.id
     vuln_title = db_obj.definition.title if db_obj.definition else "Unknown Title"

@@ -73,6 +73,15 @@ def update_vulnerability_instance(
     return finding_service.update_finding(db, db_v, update_data)
 
 
+@router.post("/{id}/relink", response_model=schemas.VulnerabilityFullRead)
+def relink_vulnerability_instance(
+    id: SafeIntID,
+    data: schemas.VulnerabilityRelink,
+    db: Session = Depends(get_db),
+):
+    return finding_service.relink_finding(db, id, data.definition_id)
+
+
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_vulnerability_instance(id: SafeIntID, db: Session = Depends(get_db)):
     db_v = finding_service.get_finding_by_id(db, id)
