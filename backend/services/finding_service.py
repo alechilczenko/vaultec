@@ -167,8 +167,11 @@ def process_vulnerability_entry(db: Session, vuln_data: schemas.VulnerabilityCre
     })
 
     v_title = def_data.pop("title")
+    v_slug = def_data.pop("slug")
 
-    target_defn = template_service.get_or_create_definition(db, title=v_title, **def_data)
+    target_defn = template_service.get_or_create_definition(
+        db, title=v_title, slug=v_slug, **def_data
+    )
 
     finding_info = {
         "status": vuln_data.status,
