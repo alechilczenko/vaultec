@@ -14,6 +14,7 @@ import database.models as models
 import schemas
 from schemas.enums import FindingStatus
 from services import template_service, asset_service, workspace_service
+from utils.slug import slugify
 from loguru import logger
 
 _EXPORT_SEVERITY_RANK = {
@@ -308,6 +309,18 @@ def build_findings_export(db: Session) -> dict:
         "findings": findings,
         "total": len(findings),
     }
+
+
+def export_download_filename(payload: dict) -> str:
+    """Build Content-Disposition filename: {client}-findings-{YYYY-MM-DD}.json."""
+    workspace = payload.get("workspace") or {}
+    client = slugify(workspace.get("client_name") or "") or "assessment"
+    exported_at = payload.get("exported_at") or datetime.now(timezone.utc)
+    if isinstance(exported_at, str):
+        day = exported_at[:10]
+    else:
+        day = exported_at.strftime("%Y-%m-%d")
+    return f"{client}-findings-{day}.json"
 
 
 def get_vulnerabilities_joined(db: Session, skip: int = 0, limit: int = 100, search_query: str = None):

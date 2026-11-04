@@ -5,6 +5,7 @@ Licensed under GNU AGPLv3 - See the LICENSE file for details
 """
 
 from fastapi import APIRouter, Depends, Query, status
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import Annotated, Optional
 from database.db import get_db
@@ -50,7 +51,13 @@ def get_vulnerability_stats(db: Session = Depends(get_db)):
 @router.get("/export", response_model=schemas.FindingExportRead)
 def export_findings(db: Session = Depends(get_db)):
     """Report JSON: workspace header + findings grouped by definition."""
-    return finding_service.build_findings_export(db)
+    payload = finding_service.build_findings_export(db)
+    body = schemas.FindingExportRead.model_validate(payload).model_dump(mode="json")
+    filename = finding_service.export_download_filename(payload)
+    return JSONResponse(
+        content=body,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.post("/create", response_model=schemas.VulnerabilityFullRead, status_code=status.HTTP_201_CREATED)
