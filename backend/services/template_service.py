@@ -4,6 +4,7 @@ Copyright (C) 2026 Alejandro Chilczenko
 Licensed under GNU AGPLv3 - See the LICENSE file for details
 """
 
+from datetime import datetime, timezone
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func
@@ -46,6 +47,36 @@ def get_all_definitions(db: Session, skip: int = 0, limit: int = 100):
         db.query(models.VulnerabilityDefinition).offset(skip).limit(limit).all()
     )
     return templates, total
+
+
+def list_definitions_for_export(db: Session) -> list[models.VulnerabilityDefinition]:
+    """All library templates, ordered by title (no pagination)."""
+    return (
+        db.query(models.VulnerabilityDefinition)
+        .order_by(models.VulnerabilityDefinition.title.asc())
+        .all()
+    )
+
+
+def build_templates_export(db: Session) -> dict:
+    """Library export envelope: all definitions (no workspace header)."""
+    templates = list_definitions_for_export(db)
+    return {
+        "exported_at": datetime.now(timezone.utc),
+        "templates": templates,
+        "total": len(templates),
+    }
+
+
+def export_download_filename(payload: dict) -> str:
+    """Build Content-Disposition filename: templates-{YYYY-MM-DD}.json."""
+    exported_at = payload.get("exported_at") or datetime.now(timezone.utc)
+    if isinstance(exported_at, str):
+        day = exported_at[:10]
+    else:
+        day = exported_at.strftime("%Y-%m-%d")
+    return f"templates-{day}.json"
+
 
 def get_definition_by_id(db: Session, def_id: int):
     return db.query(models.VulnerabilityDefinition).filter(

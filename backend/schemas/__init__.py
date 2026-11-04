@@ -27,6 +27,7 @@ from .vulnerability import (
     TemplateEntryCreate,
     VulnerabilityBulkImport,
     TemplatesRead,
+    TemplatesExportRead,
     VulnerabilityJoinedRead
 )
 from .workspace import WorkspaceSetup, WorkspaceRead

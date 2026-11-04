@@ -5,6 +5,7 @@ Licensed under GNU AGPLv3 - See the LICENSE file for details
 """
 
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from database.db import get_db
 from services import template_service
@@ -30,6 +31,19 @@ def get_template_stats(db: Session = Depends(get_db)):
 def search_templates(q: str = Depends(get_clean_query), db: Session = Depends(get_db)):
     templates, total = template_service.search_definitions(db, q)
     return {"templates": templates, "total": total}
+
+
+@router.get("/export", response_model=schemas.TemplatesExportRead)
+def export_templates(db: Session = Depends(get_db)):
+    """Library JSON: all templates (no pagination, usable in library mode)."""
+    payload = template_service.build_templates_export(db)
+    body = schemas.TemplatesExportRead.model_validate(payload).model_dump(mode="json")
+    filename = template_service.export_download_filename(payload)
+    return JSONResponse(
+        content=body,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
 
 @router.post("/create", response_model=schemas.VulnerabilityDefinitionRead, status_code=201)
 def create_vulnerability_definition(data: schemas.TemplateEntryCreate, db: Session = Depends(get_db)):
