@@ -35,6 +35,20 @@ class AssetListRead(BaseModel):
     total: int = Field(..., ge=0)
 
 
+class AssetExportWorkspace(BaseModel):
+    """Assessment header for inventory export (no id/status)."""
+    name: Optional[str] = None
+    client_name: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
+class AssetExportRead(BaseModel):
+    workspace: AssetExportWorkspace
+    exported_at: datetime
+    assets: list[AssetRead]
+    total: int = Field(..., ge=0)
+
+
 class AssetCreate(BaseSchema):
     name: str = Field(..., min_length=1, max_length=255, json_schema_extra={"example": "192.168.1.10"})
     type: AssetType

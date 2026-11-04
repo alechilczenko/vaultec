@@ -4,6 +4,7 @@ Copyright (C) 2026 Alejandro Chilczenko
 Licensed under GNU AGPLv3 - See the LICENSE file for details
 """
 
+from datetime import datetime, timezone
 from sqlalchemy import case, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -11,6 +12,8 @@ from fastapi import HTTPException
 from loguru import logger
 import database.models as models
 import schemas
+from services import workspace_service
+from utils.slug import slugify
 
 _SEVERITY_RANK = case(
     (models.VulnerabilityDefinition.severity == "critical", 5),
@@ -97,6 +100,60 @@ def get_all_assets(db: Session, skip: int = 0, limit: int = 100):
         asset.max_severity = severity_from_rank(rank)
         assets.append(asset)
     return assets, total
+
+
+def list_assets_for_export(db: Session) -> list[models.Asset]:
+    """All assets with finding summary, ordered by name (no pagination)."""
+    findings_count = func.count(models.Vulnerability.id).label("findings_count")
+    max_rank = func.max(_SEVERITY_RANK).label("max_rank")
+    rows = (
+        db.query(models.Asset, findings_count, max_rank)
+        .outerjoin(
+            models.Vulnerability,
+            models.Vulnerability.asset_id == models.Asset.id,
+        )
+        .outerjoin(
+            models.VulnerabilityDefinition,
+            models.Vulnerability.definition_id == models.VulnerabilityDefinition.id,
+        )
+        .group_by(models.Asset.id)
+        .order_by(models.Asset.name.asc())
+        .all()
+    )
+    assets = []
+    for asset, count, rank in rows:
+        asset.findings_count = count
+        asset.max_severity = severity_from_rank(rank)
+        assets.append(asset)
+    return assets
+
+
+def build_assets_export(db: Session) -> dict:
+    """Inventory export envelope: workspace header + all assets."""
+    ws = workspace_service.get_active_workspace(db)
+    assets = list_assets_for_export(db)
+    return {
+        "workspace": {
+            "name": ws.name,
+            "client_name": ws.client_name,
+            "created_at": ws.created_at,
+        },
+        "exported_at": datetime.now(timezone.utc),
+        "assets": assets,
+        "total": len(assets),
+    }
+
+
+def export_download_filename(payload: dict) -> str:
+    """Build Content-Disposition filename: {client}-assets-{YYYY-MM-DD}.json."""
+    workspace = payload.get("workspace") or {}
+    client = slugify(workspace.get("client_name") or "") or "assessment"
+    exported_at = payload.get("exported_at") or datetime.now(timezone.utc)
+    if isinstance(exported_at, str):
+        day = exported_at[:10]
+    else:
+        day = exported_at.strftime("%Y-%m-%d")
+    return f"{client}-assets-{day}.json"
 
 def get_asset_stats(db: Session):
     type_keys = {"URL": "urls", "IP": "ips", "Host": "hosts"}

@@ -5,6 +5,7 @@ Licensed under GNU AGPLv3 - See the LICENSE file for details
 """
 
 from fastapi import APIRouter, Depends, Query, status
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from database.db import get_db
 from services import asset_service
@@ -42,6 +43,18 @@ def list_assets(
 @router.get("/stats")
 def get_finding_asset_stats(db: Session = Depends(get_db)):
     return asset_service.get_asset_stats(db)
+
+
+@router.get("/export", response_model=schemas.AssetExportRead)
+def export_assets(db: Session = Depends(get_db)):
+    """Inventory JSON: workspace header + all assets (no pagination)."""
+    payload = asset_service.build_assets_export(db)
+    body = schemas.AssetExportRead.model_validate(payload).model_dump(mode="json")
+    filename = asset_service.export_download_filename(payload)
+    return JSONResponse(
+        content=body,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.post("/create", response_model=schemas.AssetRead, status_code=status.HTTP_201_CREATED)
