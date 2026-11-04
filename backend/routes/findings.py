@@ -47,6 +47,13 @@ def get_vulnerability_stats(db: Session = Depends(get_db)):
     return finding_service.get_finding_stats(db)
 
 
+@router.get("/export", response_model=schemas.FindingExportRead)
+def export_findings(db: Session = Depends(get_db)):
+    """All findings grouped by definition (description once, assets underneath)."""
+    findings = finding_service.export_findings_grouped(db)
+    return {"findings": findings, "total": len(findings)}
+
+
 @router.post("/create", response_model=schemas.VulnerabilityFullRead, status_code=status.HTTP_201_CREATED)
 def create_vulnerabilities(vulnerability: schemas.VulnerabilityCreate, db: Session = Depends(get_db)):
     return finding_service.process_vulnerability_entry(db, vulnerability)

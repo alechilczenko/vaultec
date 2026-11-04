@@ -4,7 +4,8 @@ Copyright (C) 2026 Alejandro Chilczenko
 Licensed under GNU AGPLv3 - See the LICENSE file for details
 """
 
-from sqlalchemy.orm import Session
+from collections import OrderedDict
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
@@ -13,6 +14,14 @@ import schemas
 from schemas.enums import FindingStatus
 from services import template_service, asset_service
 from loguru import logger
+
+_EXPORT_SEVERITY_RANK = {
+    "critical": 0,
+    "high": 1,
+    "medium": 2,
+    "low": 3,
+    "info": 4,
+}
 
 
 def _prepare_finding_read(db: Session, finding: models.Vulnerability) -> models.Vulnerability:
@@ -221,6 +230,68 @@ def process_vulnerability_entry(db: Session, vuln_data: schemas.VulnerabilityCre
         "notes": vuln_data.notes,
     }
     return get_or_create_finding(db, target_defn, target_asset, finding_info)
+
+def group_findings_for_export(rows: list[models.Vulnerability]) -> list[dict]:
+    """Collapse instances into definition → assets[] for report export.
+
+    Definition text (description, recommendation, …) appears once; instance
+    fields (status, evidence, discovered_by, notes) stay per asset.
+    """
+    groups: OrderedDict[int, dict] = OrderedDict()
+    for row in rows:
+        defn = row.definition
+        asset = row.asset
+        group = groups.get(defn.id)
+        if group is None:
+            group = {
+                "id": defn.id,
+                "title": defn.title,
+                "slug": defn.slug,
+                "severity": defn.severity,
+                "category": defn.category,
+                "description": defn.description,
+                "recommendation": defn.recommendation,
+                "tags": list(defn.tags or []),
+                "assets": [],
+            }
+            groups[defn.id] = group
+
+        group["assets"].append({
+            "finding_id": row.id,
+            "asset_id": asset.id,
+            "asset_name": asset.name,
+            "asset_type": asset.type,
+            "status": row.status,
+            "evidence": row.evidence,
+            "discovered_by": row.discovered_by,
+            "notes": row.notes,
+            "created_at": row.created_at,
+        })
+
+    items = list(groups.values())
+    items.sort(
+        key=lambda g: (
+            _EXPORT_SEVERITY_RANK.get(str(g["severity"]), 99),
+            (g["title"] or "").lower(),
+        )
+    )
+    for g in items:
+        g["assets"].sort(key=lambda a: (a["asset_name"] or "").lower())
+    return items
+
+
+def export_findings_grouped(db: Session) -> list[dict]:
+    """All findings in the active assessment, grouped by definition for reports."""
+    rows = (
+        db.query(models.Vulnerability)
+        .options(
+            joinedload(models.Vulnerability.definition),
+            joinedload(models.Vulnerability.asset),
+        )
+        .all()
+    )
+    return group_findings_for_export(rows)
+
 
 def get_vulnerabilities_joined(db: Session, skip: int = 0, limit: int = 100, search_query: str = None):
     """Returns (rows, total). total uses the same filters and ignores skip and limit."""
