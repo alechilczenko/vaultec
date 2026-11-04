@@ -5,6 +5,7 @@ Licensed under GNU AGPLv3 - See the LICENSE file for details
 """
 
 from collections import OrderedDict
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
@@ -12,7 +13,7 @@ from fastapi import HTTPException, status
 import database.models as models
 import schemas
 from schemas.enums import FindingStatus
-from services import template_service, asset_service
+from services import template_service, asset_service, workspace_service
 from loguru import logger
 
 _EXPORT_SEVERITY_RANK = {
@@ -291,6 +292,22 @@ def export_findings_grouped(db: Session) -> list[dict]:
         .all()
     )
     return group_findings_for_export(rows)
+
+
+def build_findings_export(db: Session) -> dict:
+    """Full report envelope: workspace header + grouped findings."""
+    ws = workspace_service.get_active_workspace(db)
+    findings = export_findings_grouped(db)
+    return {
+        "workspace": {
+            "name": ws.name,
+            "client_name": ws.client_name,
+            "created_at": ws.created_at,
+        },
+        "exported_at": datetime.now(timezone.utc),
+        "findings": findings,
+        "total": len(findings),
+    }
 
 
 def get_vulnerabilities_joined(db: Session, skip: int = 0, limit: int = 100, search_query: str = None):

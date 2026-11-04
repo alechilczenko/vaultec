@@ -13,6 +13,7 @@ from .vulnerability import (
     VulnerabilityFullRead,
     FindingExportAsset,
     FindingExportItem,
+    FindingExportWorkspace,
     FindingExportRead,
     TemplatesImport,
     TemplateEntryCreate,
