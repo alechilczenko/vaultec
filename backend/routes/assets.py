@@ -4,7 +4,6 @@ Copyright (C) 2026 Alejandro Chilczenko
 Licensed under GNU AGPLv3 - See the LICENSE file for details
 """
 
-from typing import Optional
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 from database.db import get_db
@@ -58,12 +57,6 @@ def import_assets(assets: schemas.AssetBulkImport, db: Session = Depends(get_db)
 @router.get("/{id}", response_model=schemas.AssetRead)
 def get_asset(id: SafeIntID, db: Session = Depends(get_db)):
     return asset_service.get_asset_by_id(db, id)
-
-
-@router.get("/{id}/top-finding", response_model=Optional[schemas.TopFindingRead])
-def get_asset_top_finding(id: SafeIntID, db: Session = Depends(get_db)):
-    """Highest-severity finding for the asset, or null when it has none."""
-    return asset_service.get_top_finding_for_asset(db, id)
 
 
 @router.patch("/{id}", response_model=schemas.AssetRead)

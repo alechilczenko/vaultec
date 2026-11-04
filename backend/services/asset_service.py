@@ -67,41 +67,6 @@ def get_asset_by_id(db: Session, asset_id: int):
     return attach_finding_summary(db, db_asset)
 
 
-def get_top_finding_for_asset(db: Session, asset_id: int):
-    """404 when the asset is missing. None when it has no findings."""
-    exists = db.query(models.Asset.id).filter(models.Asset.id == asset_id).first()
-    if not exists:
-        raise HTTPException(status_code=404, detail="Asset not found in active workspace.")
-
-    row = (
-        db.query(
-            models.Vulnerability.id,
-            models.Vulnerability.status,
-            models.Vulnerability.created_at,
-            models.VulnerabilityDefinition.title,
-            models.VulnerabilityDefinition.severity,
-        )
-        .join(
-            models.VulnerabilityDefinition,
-            models.Vulnerability.definition_id == models.VulnerabilityDefinition.id,
-        )
-        .filter(models.Vulnerability.asset_id == asset_id)
-        .order_by(_SEVERITY_RANK.desc(), models.Vulnerability.created_at.desc())
-        .first()
-    )
-
-    if not row:
-        return None
-
-    return schemas.TopFindingRead(
-        id=row.id,
-        title=row.title,
-        severity=row.severity,
-        status=row.status,
-        created_at=row.created_at,
-    )
-
-
 def get_asset_by_name_silent(db: Session, name: str):
     return db.query(models.Asset).filter(models.Asset.name == name).first()
 
