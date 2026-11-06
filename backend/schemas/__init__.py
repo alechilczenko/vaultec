@@ -28,6 +28,7 @@ from .vulnerability import (
     TemplateEntryCreate,
     TemplateImportEntry,
     VulnerabilityBulkImport,
+    VulnerabilityBulkImportRead,
     TemplatesRead,
     TemplatesExportRead,
     VulnerabilityJoinedRead

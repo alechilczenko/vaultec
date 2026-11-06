@@ -65,8 +65,32 @@ def create_vulnerabilities(vulnerability: schemas.VulnerabilityCreate, db: Sessi
     return finding_service.process_vulnerability_entry(db, vulnerability)
 
 
-@router.post("/import")
-def bulk_create_vulnerabilities(data: schemas.VulnerabilityBulkImport, db: Session = Depends(get_db)):
+@router.post(
+    "/import",
+    response_model=schemas.VulnerabilityBulkImportRead,
+    responses={
+        400: {
+            "description": (
+                "Import cancelled (all-or-nothing). No findings or inline templates "
+                "were written. Typical causes: missing asset, missing template id, "
+                "or duplicate (definition, asset) pair."
+            ),
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": (
+                            "Import cancelled. Row 2: asset 'missing.example' not found. "
+                            "Please register it first."
+                        )
+                    }
+                }
+            },
+        }
+    },
+)
+def bulk_create_vulnerabilities(
+    data: schemas.VulnerabilityBulkImport, db: Session = Depends(get_db)
+):
     return finding_service.bulk_process_vulnerabilities(db, data)
 
 
