@@ -447,49 +447,153 @@ def get_vulnerabilities_joined(db: Session, skip: int = 0, limit: int = 100, sea
 
 
 def bulk_process_vulnerabilities(db: Session, import_data: schemas.VulnerabilityBulkImport):
-    """A failed row is recorded and the rest of the batch continues."""
-    processed_count = 0
-    errors = []
-
-    for vuln in import_data.vulnerabilities:
-        try:
-            process_vulnerability_import_entry(db, vuln)
-            processed_count += 1
-
-        except HTTPException as he:
-            db.rollback()
-            errors.append({
-                "definition_id": vuln.definition_id,
-                "asset": vuln.asset_name,
-                "reason": he.detail,
-                "status_code": he.status_code
-            })
-            continue
-
-        except Exception:
-            db.rollback()
-            logger.exception(
-                f"Failed to import finding definition_id={vuln.definition_id} "
-                f"on '{vuln.asset_name}'"
-            )
-            errors.append({
-                "asset": vuln.asset_name,
-                "definition_id": vuln.definition_id,
-                "reason": "Could not import this row.",
-                "status_code": 500
-            })
-            continue
-
-    logger.info(f"Bulk process finished: {processed_count} imported, {len(errors)} failed")
-    
-    return {
-        "message": "Bulk processing completed.",
-        "summary": {
-            "imported": processed_count,
-            "failed": len(errors),
-            "total": len(import_data.vulnerabilities)
-        },
-        "details": {
-            "errors": errors
+    """All-or-nothing import. Any invalid row cancels the entire batch (no partial writes)."""
+    rows = list(import_data.vulnerabilities)
+    total = len(rows)
+    if total == 0:
+        return {
+            "message": "Import completed.",
+            "summary": {"imported": 0, "failed": 0, "total": 0},
+            "details": {"errors": []},
         }
+
+    errors: list[str] = []
+    prepared: list[dict] = []
+    seen_pairs: set[tuple[int, int]] = set()
+
+    for index, vuln in enumerate(rows):
+        row = f"Row {index + 1}"
+        asset = asset_service.get_asset_by_name_silent(db, vuln.asset_name)
+        if not asset:
+            errors.append(
+                f"{row}: asset '{vuln.asset_name}' not found. Please register it first."
+            )
+            continue
+
+        if vuln.definition_id is not None:
+            defn = template_service.get_definition_by_id(db, vuln.definition_id)
+            if not defn:
+                errors.append(f"{row}: template {vuln.definition_id} was not found.")
+                continue
+
+            pair = (defn.id, asset.id)
+            if pair in seen_pairs:
+                errors.append(
+                    f"{row}: {_duplicate_finding_detail(asset.name, defn.title)} "
+                    "(duplicate in import file)."
+                )
+                continue
+            existing = (
+                db.query(models.Vulnerability)
+                .filter(
+                    models.Vulnerability.definition_id == defn.id,
+                    models.Vulnerability.asset_id == asset.id,
+                )
+                .first()
+            )
+            if existing:
+                errors.append(f"{row}: {_duplicate_finding_detail(asset.name, defn.title)}")
+                continue
+
+            seen_pairs.add(pair)
+            prepared.append({
+                "asset": asset,
+                "defn": defn,
+                "inline": None,
+                "status": vuln.status,
+                "evidence": (
+                    None
+                    if vuln.evidence is None
+                    else vuln.evidence.model_dump(mode="json")
+                ),
+                "discovered_by": vuln.discovered_by,
+                "notes": vuln.notes,
+            })
+            continue
+
+        prepared.append({
+            "asset": asset,
+            "defn": None,
+            "inline": {
+                "title": vuln.title,
+                "severity": vuln.severity,
+                "category": vuln.category,
+                "description": vuln.description,
+                "recommendation": vuln.recommendation,
+                "tags": list(vuln.tags or []),
+            },
+            "status": vuln.status,
+            "evidence": (
+                None
+                if vuln.evidence is None
+                else vuln.evidence.model_dump(mode="json")
+            ),
+            "discovered_by": vuln.discovered_by,
+            "notes": vuln.notes,
+        })
+
+    if errors:
+        preview = "; ".join(errors[:8])
+        extra = f" (+{len(errors) - 8} more)" if len(errors) > 8 else ""
+        logger.warning(
+            f"Findings import cancelled before write: {len(errors)} issue(s) in {total} row(s)"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Import cancelled. {preview}{extra}",
+        )
+
+    try:
+        for item in prepared:
+            defn = item["defn"]
+            if defn is None:
+                fields = item["inline"]
+                defn = models.VulnerabilityDefinition(
+                    title=fields["title"],
+                    severity=fields["severity"],
+                    category=fields["category"] or "General",
+                    description=fields["description"],
+                    recommendation=fields["recommendation"],
+                    tags=fields["tags"],
+                )
+                db.add(defn)
+                db.flush()
+
+            db.add(
+                models.Vulnerability(
+                    definition_id=defn.id,
+                    asset_id=item["asset"].id,
+                    status=item["status"],
+                    evidence=item["evidence"],
+                    discovered_by=item["discovered_by"],
+                    notes=item["notes"],
+                )
+            )
+            db.flush()
+
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        logger.warning("Findings import cancelled by integrity conflict")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Import cancelled. A finding conflict was detected.",
+        )
+    except Exception:
+        db.rollback()
+        logger.exception("Findings import cancelled by unexpected error")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Import cancelled. Could not import findings.",
+        )
+
+    logger.info(f"Findings import completed: {len(prepared)} imported (all-or-nothing)")
+    return {
+        "message": "Import completed.",
+        "summary": {
+            "imported": len(prepared),
+            "failed": 0,
+            "total": total,
+        },
+        "details": {"errors": []},
     }
