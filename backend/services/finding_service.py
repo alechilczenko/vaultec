@@ -245,7 +245,7 @@ def _process_finding_write(
     discovered_by,
     notes,
 ):
-    """Shared by POST /findings/create and POST /findings/import."""
+    """Shared write path for POST /findings/create."""
     target_asset = asset_service.get_asset_by_name_silent(db, asset_name)
 
     if not target_asset:
@@ -293,26 +293,6 @@ def process_vulnerability_entry(db: Session, vuln_data: schemas.VulnerabilityCre
         notes=vuln_data.notes,
     )
 
-
-def process_vulnerability_import_entry(
-    db: Session, vuln_data: schemas.VulnerabilityImportEntry
-):
-    """POST /findings/import — same resolution as create (id or inline new template)."""
-    return _process_finding_write(
-        db,
-        definition_id=vuln_data.definition_id,
-        title=vuln_data.title,
-        severity=vuln_data.severity,
-        category=vuln_data.category,
-        description=vuln_data.description,
-        recommendation=vuln_data.recommendation,
-        tags=vuln_data.tags,
-        asset_name=vuln_data.asset_name,
-        status=vuln_data.status,
-        evidence=vuln_data.evidence,
-        discovered_by=vuln_data.discovered_by,
-        notes=vuln_data.notes,
-    )
 
 def group_findings_for_export(rows: list[models.Vulnerability]) -> list[dict]:
     """Collapse instances into definition → assets[] for report export.
