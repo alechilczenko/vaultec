@@ -43,11 +43,9 @@ class VulnerabilityDefinition(Base):
     __tablename__ = "vulnerability_definitions"
     id = Column(Integer, primary_key=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    # Display title — not unique. Stable identity is `slug`.
+    # Display title — not unique. Stable identity is `id`.
+    # Existing DBs that still have slug: scripts/sql/drop_slug_from_vulnerability_definitions.sql
     title = Column(String, index=True, nullable=False)
-    # Existing DBs: scripts/sql/add_slug_to_vulnerability_definitions.sql
-    # Immutable business key (kebab-case ASCII). Create/import upsert by slug.
-    slug = Column(String, unique=True, index=True, nullable=False)
     # Existing DBs: scripts/sql/rename_informative_severity_to_info.sql
     severity = Column(String, nullable=False)
     # Existing DBs: scripts/sql/add_category_to_vulnerability_definitions.sql

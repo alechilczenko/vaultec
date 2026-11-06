@@ -12,7 +12,6 @@ from fastapi import HTTPException
 from loguru import logger
 import database.models as models
 import schemas
-from utils.slug import slugify
 
 
 def get_template_stats(db: Session):
@@ -83,6 +82,7 @@ def get_definition_by_id(db: Session, def_id: int):
         models.VulnerabilityDefinition.id == def_id
     ).first()
 
+
 def get_definition_or_404(db: Session, def_id: int):
     definition = get_definition_by_id(db, def_id)
     if not definition:
@@ -92,13 +92,6 @@ def get_definition_or_404(db: Session, def_id: int):
         )
     return definition
 
-def get_definition_by_slug(db: Session, slug: str):
-    clean_slug = slugify(slug)
-    if not clean_slug:
-        return None
-    return db.query(models.VulnerabilityDefinition).filter(
-        models.VulnerabilityDefinition.slug == clean_slug
-    ).first()
 
 def save_definition(db: Session, new_def: models.VulnerabilityDefinition):
 
@@ -109,12 +102,14 @@ def save_definition(db: Session, new_def: models.VulnerabilityDefinition):
         db.refresh(new_def)
         logger.info(f"New definition saved to templates: '{def_title}'")
         return new_def
-    except IntegrityError:
+    except IntegrityError as exc:
         db.rollback()
-        logger.warning(f"Definition save blocked by unique constraint: '{def_title}'")
+        logger.warning(
+            f"Definition save blocked by integrity conflict: '{def_title}' ({exc.orig})"
+        )
         raise HTTPException(
             status_code=400,
-            detail=f"A template with slug '{new_def.slug}' already exists.",
+            detail="Could not save this template (conflict).",
         )
     except Exception:
         db.rollback()
@@ -123,34 +118,25 @@ def save_definition(db: Session, new_def: models.VulnerabilityDefinition):
             status_code=500,
             detail="Could not save this template.",
         )
-    
+
+
 def search_definitions(db: Session, query: str):
     """Returns (templates, total). Rows cap at 10. total does not."""
     pattern = f"%{query}%"
     filtered = db.query(models.VulnerabilityDefinition).filter(
         or_(
             models.VulnerabilityDefinition.title.ilike(pattern),
-            models.VulnerabilityDefinition.slug.ilike(pattern),
             models.VulnerabilityDefinition.category.ilike(pattern),
         )
     )
     total = filtered.count()
     return filtered.limit(10).all(), total
 
-def create_definition_strict(db: Session, data: schemas.TemplateEntryCreate):
 
-    existing = get_definition_by_slug(db, data.slug)
-    
-    if existing:
-        logger.warning(f"Definition creation blocked: slug '{data.slug}' already exists")
-        raise HTTPException(
-            status_code=400,
-            detail=f"A template with slug '{data.slug}' already exists.",
-        )
-
+def create_definition(db: Session, data: schemas.TemplateEntryCreate):
+    """Always inserts a new library template. Titles may duplicate."""
     new_def = models.VulnerabilityDefinition(
         title=data.title,
-        slug=data.slug,
         severity=data.severity,
         category=data.category or "General",
         description=data.description,
@@ -159,47 +145,50 @@ def create_definition_strict(db: Session, data: schemas.TemplateEntryCreate):
     )
     return save_definition(db, new_def)
 
-def get_or_create_definition(db: Session, title: str, slug: str | None = None, **kwargs):
 
-    clean_slug = slugify(slug) if slug else slugify(title)
-    if not clean_slug:
-        raise HTTPException(
-            status_code=400,
-            detail="Could not derive a valid slug from title.",
-        )
+# Back-compat alias used by routes / older call sites
+create_definition_strict = create_definition
 
-    existing = get_definition_by_slug(db, clean_slug)
-    if existing:
-        return existing
 
-    if kwargs.get("category") is None:
-        kwargs.pop("category", None)
-
+def create_definition_from_fields(
+    db: Session,
+    *,
+    title: str,
+    severity,
+    category=None,
+    description=None,
+    recommendation=None,
+    tags=None,
+):
+    """Insert a new definition from inline finding-create fields."""
     new_def = models.VulnerabilityDefinition(
         title=title,
-        slug=clean_slug,
-        **kwargs,
+        severity=severity,
+        category=category or "General",
+        description=description,
+        recommendation=recommendation,
+        tags=tags or [],
     )
     return save_definition(db, new_def)
+
 
 def update_definition(db: Session, def_id: int, update_data: dict):
 
     db_obj = get_definition_or_404(db, def_id)
-    # Slug is immutable — never accept it on PATCH (schema also forbids it).
-    update_data.pop("slug", None)
 
     for key, value in update_data.items():
         setattr(db_obj, key, value)
 
     return save_definition(db, db_obj)
 
+
 def import_definitions(db: Session, data: schemas.TemplatesImport):
-    """Existing slugs are updated in place. New slugs are inserted."""
-    created_slugs = []
-    updated_slugs = []
+    """Existing ids are updated in place. Rows without a matching id are inserted."""
+    created_ids = []
+    updated_ids = []
 
     for item in data.templates:
-        existing = get_definition_by_slug(db, item.slug)
+        existing = get_definition_by_id(db, item.id) if item.id is not None else None
 
         if existing:
             existing.title = item.title
@@ -209,11 +198,10 @@ def import_definitions(db: Session, data: schemas.TemplatesImport):
             existing.tags = item.tags
             if item.category is not None:
                 existing.category = item.category
-            updated_slugs.append(existing.slug)
+            updated_ids.append(existing.id)
         else:
             new_defn = models.VulnerabilityDefinition(
                 title=item.title,
-                slug=item.slug,
                 severity=item.severity,
                 category=item.category or "General",
                 description=item.description,
@@ -221,13 +209,15 @@ def import_definitions(db: Session, data: schemas.TemplatesImport):
                 tags=item.tags
             )
             db.add(new_defn)
-            created_slugs.append(item.slug)
+            db.flush()
+            created_ids.append(new_defn.id)
+            continue
         db.flush()
     try:
         db.commit()
         logger.info(
             f"Templates bulk import finished: "
-            f"{len(created_slugs)} created, {len(updated_slugs)} updated"
+            f"{len(created_ids)} created, {len(updated_ids)} updated"
         )
     except Exception:
         db.rollback()
@@ -237,15 +227,16 @@ def import_definitions(db: Session, data: schemas.TemplatesImport):
     return {
         "message": "Templates import completed successfully.",
         "summary": {
-            "created": len(created_slugs),
-            "updated": len(updated_slugs),
+            "created": len(created_ids),
+            "updated": len(updated_ids),
             "total": len(data.templates)
         },
         "details": {
-            "new_templates": created_slugs,
-            "updated_templates": updated_slugs
+            "new_templates": created_ids,
+            "updated_templates": updated_ids
         }
     }
+
 
 def delete_definition(db: Session, def_id: int):
     db_obj = get_definition_or_404(db, def_id)

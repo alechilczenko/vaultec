@@ -203,35 +203,116 @@ def get_or_create_finding(db: Session, defn: models.VulnerabilityDefinition, ass
             detail="Could not save this finding."
         )
 
-def process_vulnerability_entry(db: Session, vuln_data: schemas.VulnerabilityCreate):
+def _resolve_definition_for_write(
+    db: Session,
+    *,
+    definition_id: int | None,
+    title: str | None,
+    severity,
+    category=None,
+    description=None,
+    recommendation=None,
+    tags=None,
+) -> models.VulnerabilityDefinition:
+    """Link an existing template by id, or always insert a new one from fields."""
+    if definition_id is not None:
+        return template_service.get_definition_or_404(db, definition_id)
+
+    return template_service.create_definition_from_fields(
+        db,
+        title=title,
+        severity=severity,
+        category=category,
+        description=description,
+        recommendation=recommendation,
+        tags=tags,
+    )
+
+
+def _process_finding_write(
+    db: Session,
+    *,
+    definition_id: int | None,
+    title: str | None,
+    severity,
+    category,
+    description,
+    recommendation,
+    tags,
+    asset_name: str,
+    status,
+    evidence,
+    discovered_by,
+    notes,
+):
     """Shared by POST /findings/create and POST /findings/import."""
-    target_asset = asset_service.get_asset_by_name_silent(db, vuln_data.asset_name)
+    target_asset = asset_service.get_asset_by_name_silent(db, asset_name)
 
     if not target_asset:
-        logger.error(f"Asset lookup failed: '{vuln_data.asset_name}' not found.")
+        logger.error(f"Asset lookup failed: '{asset_name}' not found.")
         raise HTTPException(
-            status_code=404, 
-            detail=f"Asset '{vuln_data.asset_name}' not found. Please register it first."
+            status_code=404,
+            detail=f"Asset '{asset_name}' not found. Please register it first."
         )
 
-    def_data = vuln_data.model_dump(exclude={
-        "asset_name", "status", "evidence", "discovered_by", "notes"
-    })
-
-    v_title = def_data.pop("title")
-    v_slug = def_data.pop("slug")
-
-    target_defn = template_service.get_or_create_definition(
-        db, title=v_title, slug=v_slug, **def_data
+    target_defn = _resolve_definition_for_write(
+        db,
+        definition_id=definition_id,
+        title=title,
+        severity=severity,
+        category=category,
+        description=description,
+        recommendation=recommendation,
+        tags=tags,
     )
 
     finding_info = {
-        "status": vuln_data.status,
-        "evidence": None if vuln_data.evidence is None else vuln_data.evidence.model_dump(mode="json"),
-        "discovered_by": vuln_data.discovered_by,
-        "notes": vuln_data.notes,
+        "status": status,
+        "evidence": None if evidence is None else evidence.model_dump(mode="json"),
+        "discovered_by": discovered_by,
+        "notes": notes,
     }
     return get_or_create_finding(db, target_defn, target_asset, finding_info)
+
+
+def process_vulnerability_entry(db: Session, vuln_data: schemas.VulnerabilityCreate):
+    """POST /findings/create — resolve template by id or create one inline."""
+    return _process_finding_write(
+        db,
+        definition_id=vuln_data.definition_id,
+        title=vuln_data.title,
+        severity=vuln_data.severity,
+        category=vuln_data.category,
+        description=vuln_data.description,
+        recommendation=vuln_data.recommendation,
+        tags=vuln_data.tags,
+        asset_name=vuln_data.asset_name,
+        status=vuln_data.status,
+        evidence=vuln_data.evidence,
+        discovered_by=vuln_data.discovered_by,
+        notes=vuln_data.notes,
+    )
+
+
+def process_vulnerability_import_entry(
+    db: Session, vuln_data: schemas.VulnerabilityImportEntry
+):
+    """POST /findings/import — same resolution as create (id or inline new template)."""
+    return _process_finding_write(
+        db,
+        definition_id=vuln_data.definition_id,
+        title=vuln_data.title,
+        severity=vuln_data.severity,
+        category=vuln_data.category,
+        description=vuln_data.description,
+        recommendation=vuln_data.recommendation,
+        tags=vuln_data.tags,
+        asset_name=vuln_data.asset_name,
+        status=vuln_data.status,
+        evidence=vuln_data.evidence,
+        discovered_by=vuln_data.discovered_by,
+        notes=vuln_data.notes,
+    )
 
 def group_findings_for_export(rows: list[models.Vulnerability]) -> list[dict]:
     """Collapse instances into definition → assets[] for report export.
@@ -248,7 +329,6 @@ def group_findings_for_export(rows: list[models.Vulnerability]) -> list[dict]:
             group = {
                 "id": defn.id,
                 "title": defn.title,
-                "slug": defn.slug,
                 "severity": defn.severity,
                 "category": defn.category,
                 "description": defn.description,
@@ -351,6 +431,7 @@ def get_vulnerabilities_joined(db: Session, skip: int = 0, limit: int = 100, sea
         models.Vulnerability.status,
         models.Vulnerability.discovered_by,
         models.Vulnerability.id.label("instance_id"),
+        models.Vulnerability.definition_id,
     ).join(models.Asset, models.Vulnerability.asset_id == models.Asset.id).join(
         models.VulnerabilityDefinition,
         models.Vulnerability.definition_id == models.VulnerabilityDefinition.id,
@@ -372,13 +453,13 @@ def bulk_process_vulnerabilities(db: Session, import_data: schemas.Vulnerability
 
     for vuln in import_data.vulnerabilities:
         try:
-            process_vulnerability_entry(db, vuln)
+            process_vulnerability_import_entry(db, vuln)
             processed_count += 1
-        
+
         except HTTPException as he:
             db.rollback()
             errors.append({
-                "title": vuln.title,
+                "definition_id": vuln.definition_id,
                 "asset": vuln.asset_name,
                 "reason": he.detail,
                 "status_code": he.status_code
@@ -387,10 +468,13 @@ def bulk_process_vulnerabilities(db: Session, import_data: schemas.Vulnerability
 
         except Exception:
             db.rollback()
-            logger.exception(f"Failed to import finding '{vuln.title}' on '{vuln.asset_name}'")
+            logger.exception(
+                f"Failed to import finding definition_id={vuln.definition_id} "
+                f"on '{vuln.asset_name}'"
+            )
             errors.append({
                 "asset": vuln.asset_name,
-                "title": vuln.title,
+                "definition_id": vuln.definition_id,
                 "reason": "Could not import this row.",
                 "status_code": 500
             })
