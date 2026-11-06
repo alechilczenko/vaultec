@@ -14,11 +14,8 @@ class SeverityEnum(str, enum.Enum):
     critical = "critical"
 
 class FindingStatus(str, enum.Enum):
-    OPEN = "open"               
-    IN_PROGRESS = "in_progress" 
-    CONFIRMED = "confirmed"     
-    REMEDIATED = "remediated"   
-    VERIFIED = "verified"      
+    OPEN = "open"
+    REMEDIATED = "remediated"
     RISK_ACCEPTED = "risk_accepted"
     FALSE_POSITIVE = "false_positive"
 
