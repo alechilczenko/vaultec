@@ -10,9 +10,9 @@
 
 ---
 
-**APP** is a web workspace for active security assessments. It aims to keep an engagement coherent from start to finish: inventory the assets in scope, reuse standardized vulnerability definitions, and track findings from discovery through remediation — with evidence and notes attached.
+APP is a lightweight web workspace for managing active security assessments from start to finish. It lets you inventory assets, reuse standardized vulnerability definitions, and track findings with evidence and notes—without the overhead of heavy enterprise platforms.
 
-Built for single-engagement focus without the overhead of heavy enterprise platforms, it separates reusable vulnerability knowledge from engagement-specific evidence. Its API-first design lets you ingest output from any vulnerability scanner and generate a findings PDF report at any point in the assessment.
+Built for single-engagement focus, it separates reusable vulnerability templates from project-specific data. Its API-first design makes it easy to ingest output from any scanner and generate PDF reports at any point.
 
 ![Findings workspace](.github/banners/01-findings.png)
 
