@@ -1,15 +1,14 @@
-<p align="center">
-  <img src=".github/banners/logo.png" alt="APP mark" width="96" height="96" />
-</p>
+<div align="center">
+  <h1>APP</h1>
+  <p>
+    <img src="https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI" />
+    <img src="https://img.shields.io/badge/PostgreSQL-336791?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL" />
+    <img src="https://img.shields.io/badge/Alpine.js-8BC0D0?style=flat-square&logo=alpinedotjs&logoColor=black" alt="Alpine.js" />
+    <img src="https://img.shields.io/badge/License-AGPLv3-f43f5e?style=flat-square" alt="AGPLv3" />
+  </p>
+</div>
 
-<h1 align="center">APP</h1>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI" />
-  <img src="https://img.shields.io/badge/PostgreSQL-336791?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL" />
-  <img src="https://img.shields.io/badge/Alpine.js-8BC0D0?style=flat-square&logo=alpinedotjs&logoColor=black" alt="Alpine.js" />
-  <img src="https://img.shields.io/badge/License-AGPLv3-f43f5e?style=flat-square" alt="AGPLv3" />
-</p>
+---
 
 **APP** is a web workspace for active security assessments. It aims to keep an engagement coherent from start to finish: inventory the assets in scope, reuse standardized vulnerability definitions, and track findings from discovery through remediation — with evidence and notes attached.
 
@@ -95,26 +94,6 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 Open http://localhost:8000/ and sign in as `admin` with `ADMIN_SETUP_PASSWORD`.
 
-| URL | |
-| --- | --- |
-| http://localhost:8000/ | Login |
-| http://localhost:8000/workspace/findings | Findings |
-| http://localhost:8000/workspace/templates | Templates |
-| http://localhost:8000/workspace/assets | Assets |
-| http://localhost:8000/docs | OpenAPI (Swagger) |
-
-### Model
-
-Create assets → instantiate findings from templates → attach evidence → move status (`open` → `remediated`, or close as `risk accepted` / `false positive`). PATCH updates the instance, not the global definition.
-
-### Tests
-
-```bash
-cd backend
-source .venv/bin/activate
-python -m pytest
-```
-
 ## API Automation Example
 
 Every action in the UI is backed by the REST API. You can parse output from any scanner (Nuclei, Nessus, Burp, Nmap, or custom scripts) into the bulk import schema and push it directly into the active workspace:
@@ -137,29 +116,11 @@ curl -s -H "Authorization: Bearer <TOKEN>" \
 
 ## Gallery
 
-Workspace lists:
-
-![Assets inventory](.github/banners/02-assets.png)
-
-![Template library](.github/banners/03-templates.png)
-
 Finding workflow:
 
 ![Finding detail with HTTP evidence](.github/banners/04-finding-detail.png)
 
-![Edit finding](.github/banners/05-finding-edit.png)
-
-![New finding (template picker)](.github/banners/06-new-finding.png)
-
-Library & scope:
-
-![Template detail](.github/banners/07-template-detail.png)
-
 ![New template](.github/banners/10-new-template.png)
-
-![Asset detail](.github/banners/08-asset-detail.png)
-
-![Scratchpad notes](.github/banners/09-notes.png)
 
 ## Contributing
 
