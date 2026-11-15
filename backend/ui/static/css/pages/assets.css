@@ -1,0 +1,16 @@
+/* Assets page — only layout glue; primitives live in ui.css / main.css */
+
+.assets-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+}
+
+.assets-page .collection-table {
+  --table-columns: minmax(0, 1fr) max-content max-content minmax(7rem, max-content);
+  --table-min-width: 28rem;
+  --table-gap: var(--space-5);
+  --page-gutter: var(--space-1-5);
+}

@@ -1,0 +1,68 @@
+/* Login page styles (uses main.css + ui.css). */
+
+body {
+  margin: 0;
+}
+
+.auth-layout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 100vh;
+  padding: var(--space-4) 0;
+  background-color: var(--bg-base);
+}
+
+.login-wrapper {
+  width: 100%;
+  max-width: 420px;
+  padding: 0 var(--space-3);
+}
+
+.login-brand {
+  display: flex;
+  justify-content: center;
+  margin-bottom: var(--space-3);
+}
+
+.login-brand-mark {
+  display: block;
+  width: auto;
+  height: 48px;
+  object-fit: contain;
+  mix-blend-mode: screen;
+}
+
+.login-card {
+  width: 100%;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-lg);
+}
+
+.login-card-face {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: var(--space-4);
+  border-top: 2px solid var(--brand-accent);
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.login-form .form-input {
+  background-color: var(--bg-base);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  transition: var(--transition-ui);
+}
+
+.btn-submit {
+  width: 100%;
+  margin-top: var(--space-1);
+}
