@@ -544,6 +544,7 @@ document.addEventListener("alpine:init", () => {
         this.openDetail(created);
         toast.show(`Created asset #${created.id}`);
       } catch (err) {
+        if (api.isAbortError(err)) return;
         const message = err.message || "Could not create asset";
         toast.show(message, { tone: "danger" });
       } finally {
@@ -564,6 +565,7 @@ document.addEventListener("alpine:init", () => {
         this.openDetail(updated);
         toast.show(`Updated asset #${updated.id}`);
       } catch (err) {
+        if (api.isAbortError(err)) return;
         const message = err.message || "Could not update asset";
         toast.show(message, { tone: "danger" });
       } finally {

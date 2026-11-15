@@ -19,6 +19,11 @@
   function bindNavGuards() {
     window.addEventListener("pagehide", markNavigatingAway);
     window.addEventListener("beforeunload", markNavigatingAway);
+    // pagehide/beforeunload stick navigatingAway=true; clear on restore (bfcache,
+    // back/forward) or the next PATCH/GET would throw "The operation was aborted."
+    window.addEventListener("pageshow", () => {
+      navigatingAway = false;
+    });
     // Capture same-origin link clicks *before* the browser aborts in-flight fetch
     // (Chromium often rejects with TypeError "Failed to fetch", not AbortError).
     document.addEventListener(
@@ -133,6 +138,12 @@
   }
 
   async function request(endpoint, options = {}) {
+    // Don't inherit a sticky navigatingAway from pagehide/bfcache while the user
+    // is still in this tab — that surfaced as "The operation was aborted." on save.
+    if (typeof document !== "undefined" && document.visibilityState === "visible") {
+      navigatingAway = false;
+    }
+
     const {
       body,
       headers = {},
