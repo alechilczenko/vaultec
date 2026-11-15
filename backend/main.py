@@ -8,15 +8,17 @@ from config.logger_config import setup_app_logging
 
 setup_app_logging()
 
+from pathlib import Path
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from database.db import engine
 from database.models import Base
 from auth.setup import setup_admin_user
 from auth.utils import get_current_user
 from dependencies.workspace import require_active_workspace
-from routes import admin, assets, auth, findings, notes, templates, workspace
+from routes import admin, assets, auth, findings, notes, pages, templates, workspace
 from loguru import logger
 from inspect import cleandoc
 import os
@@ -106,3 +108,12 @@ app.include_router(notes.router, dependencies=_engagement_deps)
 
 # Destructive maintenance (auth only; not engagement-gated)
 app.include_router(admin.router, dependencies=[Depends(get_current_user)])
+
+# HTML pages (Jinja2 + Alpine). Mount static after JSON routers so /static is not shadowed.
+app.include_router(pages.router)
+app.mount(
+    "/static",
+    StaticFiles(directory=Path(__file__).parent / "ui" / "static"),
+    name="static",
+)
+
