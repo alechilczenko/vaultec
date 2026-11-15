@@ -1,0 +1,58 @@
+{# CollectionStates — loading / empty library / no filter match.
+   Use: {% from "partials/collection_states.html" import collection_states %}
+        {{ collection_states(
+             loading_title="…", loading_desc="…",
+             empty_title="…", empty_desc="…", empty_create_label="…",
+             nomatch_title="…", nomatch_desc="…",
+             empty_when="!loading && !error && items.length === 0 && !query") }}
+#}
+{% macro collection_states(
+  loading_title,
+  loading_desc,
+  empty_title,
+  empty_desc,
+  empty_create_label,
+  nomatch_title,
+  nomatch_desc,
+  empty_when="!loading && !error && items.length === 0 && !query"
+) -%}
+    <div class="feedback-panel-wrap" x-show="loading">
+      <div class="feedback-panel">
+        <h2 class="feedback-panel__title">{{ loading_title }}</h2>
+        <p class="feedback-panel__desc">{{ loading_desc }}</p>
+      </div>
+    </div>
+
+    <div class="feedback-panel-wrap" x-show="{{ empty_when }}">
+      <div class="feedback-panel">
+        <h2 class="feedback-panel__title">{{ empty_title }}</h2>
+        <p class="feedback-panel__desc">{{ empty_desc }}</p>
+        <div class="feedback-panel__actions">
+          <button type="button" class="base-button size-md variant-primary" @click="startCreate">
+            <span x-html="$icon('plus', 16)"></span>
+            <span>{{ empty_create_label }}</span>
+          </button>
+          <button type="button" class="base-button size-md variant-secondary" @click="pickImport">
+            <span x-html="$icon('import', 16)"></span>
+            <span>Import</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="feedback-panel-wrap"
+      x-show="!loading && items.length && filteredCount === 0"
+    >
+      <div class="feedback-panel">
+        <h2 class="feedback-panel__title">{{ nomatch_title }}</h2>
+        <p class="feedback-panel__desc">{{ nomatch_desc }}</p>
+        <div class="feedback-panel__actions">
+          <button type="button" class="base-button size-md variant-secondary" @click="clearFilters">
+            <span x-html="$icon('filter-clear', 16)"></span>
+            <span>Clear filters</span>
+          </button>
+        </div>
+      </div>
+    </div>
+{%- endmacro %}

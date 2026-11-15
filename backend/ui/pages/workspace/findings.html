@@ -1,0 +1,1278 @@
+{% extends "workspace/shell.html" %}
+{% import "partials/sort_header_macro.html" as sort %}
+{% from "partials/collection_states.html" import collection_states %}
+{% from "partials/severity_picker.html" import severity_picker %}
+{% block title %}Findings{% endblock %}
+{% block page_head %}
+  <link rel="stylesheet" href="/static/css/pages/findings.css?v=tpl-empty1" />
+{% endblock %}
+{% block content %}
+  <div class="findings-page workspace" x-data="findingsPage" x-cloak>
+    <template x-teleport="#page-actions">
+      <div class="page-actions-inner" x-show="!loading && items.length">
+        <button
+          type="button"
+          class="base-button size-md variant-secondary"
+          @click="exportReport"
+          :disabled="loading || saving"
+        >
+          <span x-html="$icon('export', 16)"></span>
+          <span>Export PDF</span>
+        </button>
+        <button
+          type="button"
+          class="base-button size-md variant-secondary"
+          @click="pickImport"
+          :disabled="loading || saving"
+        >
+          <span x-html="$icon('import', 16)"></span>
+          <span>Import</span>
+        </button>
+        <button
+          type="button"
+          class="base-button size-md variant-primary"
+          @click="startCreate"
+          :disabled="loading || saving"
+        >
+          <span x-html="$icon('plus', 16)"></span>
+          <span>New finding</span>
+        </button>
+      </div>
+    </template>
+
+    <section
+      class="severity-block"
+      aria-labelledby="sev-heading"
+      x-show="!loading && items.length"
+    >
+      <div class="severity-head">
+        <h2 id="sev-heading">Severity</h2>
+      </div>
+      <div class="severity-distribution">
+        <div class="sevbar" aria-hidden="true">
+          <template x-for="band in visibleSeverityBands" :key="'bar-' + band.key">
+            <span
+              :class="band.key"
+              :style="'flex: ' + band.count + ' 1 0'"
+            ></span>
+          </template>
+        </div>
+        <div class="sev-legend">
+          <template x-for="band in severityBands" :key="'leg-' + band.key">
+            <button
+              type="button"
+              :class="{ 'is-active': activeSeverityFilter === band.key }"
+              :aria-pressed="activeSeverityFilter === band.key ? 'true' : 'false'"
+              @click="toggleSeverityFromLegend(band.key)"
+            >
+              <i class="swatch" :class="band.key" aria-hidden="true"></i>
+              <span x-text="band.shortLabel"></span>
+              <b x-text="band.count"></b>
+            </button>
+          </template>
+        </div>
+      </div>
+    </section>
+
+    <div class="collection-toolbar" x-show="!loading && (items.length || query || filtersActive)">
+      <div class="toolbar-left">
+        <div class="search-wrap">
+          <div class="search-field">
+            <span class="search-icon" x-html="$icon('search', 14)"></span>
+            <input
+              class="search-input"
+              type="search"
+              placeholder="Title, asset, or category"
+              maxlength="100"
+              x-model="query"
+              :disabled="loading || saving"
+            />
+          </div>
+        </div>
+        <div class="collection-filter-selects" x-show="items.length || filtersActive">
+          <label class="filter-select-wrap" x-show="presentSeverities.length">
+            <span class="visually-hidden">Filter by severity</span>
+            <select
+              class="toolbar-select"
+              aria-label="Filter by severity"
+              :value="filters.severity"
+              @change="setFilter('severity', $event.target.value)"
+            >
+              <option value="all">All severities</option>
+              <template x-for="sev in presentSeverities" :key="sev">
+                <option :value="sev" x-text="severityAbbrev(sev)"></option>
+              </template>
+            </select>
+          </label>
+          <label class="filter-select-wrap" x-show="presentStatuses.length">
+            <span class="visually-hidden">Filter by status</span>
+            <select
+              class="toolbar-select"
+              aria-label="Filter by status"
+              :value="filters.status"
+              @change="setFilter('status', $event.target.value)"
+            >
+              <option value="all">All statuses</option>
+              <template x-for="st in presentStatuses" :key="st">
+                <option :value="st" x-text="humanize(st)"></option>
+              </template>
+            </select>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <p class="error-banner" x-show="error" role="alert">
+      <span x-html="$icon('warning', 16)"></span>
+      <span x-text="error"></span>
+    </p>
+
+    {{ collection_states(
+      loading_title="Loading findings…",
+      loading_desc="Fetching the engagement findings.",
+      empty_title="No findings yet",
+      empty_desc="Instantiate a template on an asset, or import a JSON file.",
+      empty_create_label="New finding",
+      nomatch_title="No findings match these filters",
+      nomatch_desc="Try a broader search or clear the filters.",
+      empty_when="!loading && !error && items.length === 0 && !query && !filtersActive"
+    ) }}
+
+    <section class="table-region" x-show="!loading && filteredCount" aria-label="Findings">
+      <div class="table-container collection-table findings-table">
+        <div class="table-scroll">
+          <div
+            class="table-scroll-inner"
+            role="grid"
+            aria-label="findings"
+            :aria-rowcount="filteredCount"
+          >
+            <div class="table-header" role="row">
+              {% call sort.col('title') %}Finding{% endcall %}
+              {% call sort.col('status') %}Status{% endcall %}
+              {% call sort.col('discoveredBy') %}Source{% endcall %}
+              {% call sort.col('severity') %}Severity{% endcall %}
+              {% call sort.col('createdAt') %}Date{% endcall %}
+            </div>
+            <div class="table-body">
+              <template x-for="item in displayedItems" :key="item.id">
+                <div
+                  class="base-row"
+                  role="row"
+                  tabindex="0"
+                  :class="{ selected: selected && selected.id === item.id }"
+                  :aria-label="item.title"
+                  :aria-selected="selected && selected.id === item.id"
+                  @click="toggleSelect(item)"
+                  @dblclick="openDetail(item)"
+                  @keydown.enter.prevent="openDetail(item)"
+                  @keydown.space.prevent="toggleSelect(item)"
+                >
+                  <div class="finding-lead" role="gridcell">
+                    <div class="cell-text" x-text="item.title" :title="item.title"></div>
+                    <div class="finding-target" x-show="item.asset_name" x-text="item.asset_name" :title="item.asset_name"></div>
+                  </div>
+                  <div class="cell-inline" role="gridcell">
+                    <span
+                      class="base-badge variant-status size-sm"
+                      :class="statusClass(item.status)"
+                    >
+                      <span class="badge-text">
+                        <span class="badge-dot" aria-hidden="true"></span>
+                        <span x-text="humanize(item.status)"></span>
+                      </span>
+                    </span>
+                  </div>
+                  <div class="finding-source" role="gridcell">
+                    <span
+                      :class="isManualSourceOf(item.discovered_by) ? 'source-manual' : 'source-tool'"
+                      x-html="$icon(isManualSourceOf(item.discovered_by) ? 'user' : 'crosshair-2', 14)"
+                    ></span>
+                    <span x-text="item.discovered_by || 'Unassigned'"></span>
+                  </div>
+                  <div class="cell-inline" role="gridcell">
+                    <span
+                      class="base-badge variant-severity size-sm"
+                      :class="'sev-' + item.severity"
+                    >
+                      <span class="badge-text" x-text="severityAbbrev(item.severity)"></span>
+                    </span>
+                  </div>
+                  <div class="cell-meta" role="gridcell" x-text="formatDate(item.created_at)"></div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+        {% include "partials/pagination_bar.html" %}
+      </div>
+    </section>
+
+    <!-- Detail -->
+    <template x-teleport="body">
+      <div
+        class="detail-overlay"
+        x-transition:enter="detail-modal-enter"
+        x-transition:enter-start="detail-modal-enter-start"
+        x-transition:enter-end="detail-modal-enter-end"
+        x-transition:leave="detail-modal-leave"
+        x-transition:leave-start="detail-modal-leave-start"
+        x-transition:leave-end="detail-modal-leave-end"
+        x-show="mode === 'detail' && selected"
+        x-cloak
+        @click.self="!relinkOpen && closePanel()"
+        @keydown.escape.window="!$store.confirm.open && !$store.importResult.open && !$store.importPicker.open && mode === 'detail' && !relinkOpen && !evidenceEditor && closePanel()"
+      >
+        <div
+          class="detail-container"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="finding-detail-title"
+          tabindex="-1"
+          :style="selected ? { '--detail-accent': 'var(--sev-' + selected.severity + ')' } : {}"
+        >
+          <header class="detail-header">
+            <div class="detail-heading">
+              <div class="detail-title-row">
+                <span class="detail-title-icon" aria-hidden="true" x-html="$icon('lightning-bolt', 16)"></span>
+                <h2 class="detail-title" id="finding-detail-title" x-text="selected?.title" :title="selected?.title"></h2>
+              </div>
+            </div>
+            <div class="detail-actions">
+              <button
+                type="button"
+                class="base-button size-sm variant-ghost"
+                title="Edit finding"
+                @click="startEdit"
+                :disabled="saving || !selected?.detailed"
+                x-html="$icon('edit', 16)"
+              ></button>
+              <button
+                type="button"
+                class="base-button size-sm variant-ghost-danger"
+                title="Delete finding"
+                @click="remove"
+                :disabled="saving"
+                x-html="$icon('delete', 16)"
+              ></button>
+              <div class="action-divider"></div>
+              <button
+                type="button"
+                class="base-button size-sm variant-ghost"
+                title="Close (Esc)"
+                @click="closePanel"
+                x-html="$icon('close', 16)"
+              ></button>
+            </div>
+          </header>
+          <div class="detail-body">
+            <div class="detail-main">
+              <template x-if="detailLoading && !selected?.detailed">
+                <section class="detail-section variant-main">
+                  <p class="is-empty">Loading finding details…</p>
+                </section>
+              </template>
+              <template x-if="detailError && !selected?.detailed">
+                <section class="detail-section variant-main">
+                  <p class="is-empty" x-text="detailError"></p>
+                  <button type="button" class="base-button size-sm variant-secondary" @click="openDetail(selected)">Try again</button>
+                </section>
+              </template>
+              <template x-if="selected?.detailed">
+                <div class="detail-main-inner">
+                  <section class="detail-section variant-main">
+                    <h3 class="section-title">Description</h3>
+                    <div
+                      class="detail-prose"
+                      x-show="selected?.description"
+                      :class="{ 'is-expanded': descriptionExpanded, 'is-collapsible': proseCollapsible(selected?.description) }"
+                    >
+                      <div
+                        class="detail-prose-body"
+                        :class="{ 'is-clamped': proseCollapsible(selected?.description) && !descriptionExpanded }"
+                      >
+                        <template x-for="(block, index) in proseParagraphs(selected?.description)" :key="index">
+                          <p x-text="block"></p>
+                        </template>
+                      </div>
+                      <button
+                        type="button"
+                        class="detail-prose-toggle"
+                        x-show="proseCollapsible(selected?.description)"
+                        :aria-expanded="descriptionExpanded"
+                        @click="descriptionExpanded = !descriptionExpanded"
+                      >
+                        <span x-text="descriptionExpanded ? 'Show less' : 'Show full description'"></span>
+                        <span x-html="$icon(descriptionExpanded ? 'chevron-up' : 'chevron-down', 14)"></span>
+                      </button>
+                    </div>
+                    <p class="is-empty" x-show="!selected?.description">No description provided.</p>
+                  </section>
+
+                  <section class="detail-section variant-main">
+                    <h3 class="section-title">Severity</h3>
+                    <span
+                      class="base-badge variant-severity size-lg"
+                      :class="'sev-' + selected?.severity"
+                    >
+                      <span class="badge-text" x-text="severityLabel(selected?.severity)"></span>
+                    </span>
+                  </section>
+
+                  <section class="detail-section variant-main">
+                    <h3 class="section-title">Remediation</h3>
+                    <div
+                      class="detail-prose"
+                      x-show="selected?.recommendation"
+                      :class="{ 'is-expanded': remediationExpanded, 'is-collapsible': proseCollapsible(selected?.recommendation) }"
+                    >
+                      <div
+                        class="detail-prose-body"
+                        :class="{ 'is-clamped': proseCollapsible(selected?.recommendation) && !remediationExpanded }"
+                      >
+                        <template x-for="(block, index) in proseParagraphs(selected?.recommendation)" :key="index">
+                          <p x-text="block"></p>
+                        </template>
+                      </div>
+                      <button
+                        type="button"
+                        class="detail-prose-toggle"
+                        x-show="proseCollapsible(selected?.recommendation)"
+                        :aria-expanded="remediationExpanded"
+                        @click="remediationExpanded = !remediationExpanded"
+                      >
+                        <span x-text="remediationExpanded ? 'Show less' : 'Show full remediation'"></span>
+                        <span x-html="$icon(remediationExpanded ? 'chevron-up' : 'chevron-down', 14)"></span>
+                      </button>
+                    </div>
+                    <p class="is-empty" x-show="!selected?.recommendation">No remediation guidance yet.</p>
+                  </section>
+
+                  <section class="detail-section variant-main">
+                    <h3 class="section-title">Asset involved</h3>
+                    <div
+                      class="detail-target-pill"
+                      x-show="selected?.asset_name"
+                      :class="{ 'is-copied': assetCopied }"
+                    >
+                      <button
+                        type="button"
+                        class="detail-target-main"
+                        :title="'Open asset ' + selected.asset_name"
+                        @click="openAsset"
+                      >
+                        <span x-html="$icon('asset', 14)"></span>
+                        <span class="detail-target-label" x-text="selected.asset_name"></span>
+                        <span class="detail-target-open" x-html="$icon('open', 12)"></span>
+                      </button>
+                      <button
+                        type="button"
+                        class="detail-target-action"
+                        :class="{ copied: assetCopied }"
+                        :aria-label="assetCopied ? 'Copied' : 'Copy asset'"
+                        :title="assetCopied ? 'Copied' : 'Copy asset'"
+                        @click.stop="copyAsset"
+                      >
+                        <span x-html="$icon(assetCopied ? 'check' : 'copy', 12)"></span>
+                      </button>
+                    </div>
+                  </section>
+
+                  <section class="detail-section variant-main">
+                    <h3 class="section-title">Evidence</h3>
+                    <div class="evidence-pager" x-show="evidenceList.length">
+                      <figure class="evidence-block" x-show="activeEvidence">
+                        <figcaption class="evidence-header">
+                          <span class="evidence-type">
+                            <span class="evidence-type-icon" x-html="$icon(activeEvidence?.type === 'http' ? 'globe' : 'code', 14)"></span>
+                            <span class="evidence-type-text" x-text="(activeEvidence?.type || 'general').toUpperCase() + (activeEvidence?.label ? ' · ' + activeEvidence.label : '')"></span>
+                          </span>
+                        </figcaption>
+                        <pre class="evidence-code"><code x-text="activeEvidence?.content"></code></pre>
+                      </figure>
+                      <div class="evidence-pager-bar" x-show="evidenceList.length > 1">
+                        <span class="evidence-pager-meta">
+                          Evidence
+                          <span class="meta-strong" x-text="evidencePage"></span>
+                          of
+                          <span class="meta-strong" x-text="evidenceList.length"></span>
+                        </span>
+                        <div class="evidence-pager-controls">
+                          <button type="button" class="page-nav-btn page-nav-arrow is-compact" :disabled="evidencePage <= 1" @click="evidencePrev" x-html="$icon('chevron-left', 16)"></button>
+                          <span class="page-nav-btn is-compact active" x-text="evidencePage"></span>
+                          <button type="button" class="page-nav-btn page-nav-arrow is-compact" :disabled="evidencePage >= evidenceList.length" @click="evidenceNext" x-html="$icon('chevron-right', 16)"></button>
+                        </div>
+                      </div>
+                    </div>
+                    <p class="is-empty" x-show="!evidenceList.length">No evidence attached yet.</p>
+                  </section>
+
+                  <section class="detail-section variant-main" x-show="selected?.notes">
+                    <h3 class="section-title">Notes</h3>
+                    <div class="detail-prose" :class="{ 'is-expanded': notesExpanded, 'is-collapsible': proseCollapsible(selected?.notes) }">
+                      <div class="detail-prose-body" :class="{ 'is-clamped': proseCollapsible(selected?.notes) && !notesExpanded }">
+                        <template x-for="(block, index) in proseParagraphs(selected?.notes)" :key="index">
+                          <p x-text="block"></p>
+                        </template>
+                      </div>
+                      <button
+                        type="button"
+                        class="detail-prose-toggle"
+                        x-show="proseCollapsible(selected?.notes)"
+                        :aria-expanded="notesExpanded"
+                        @click="notesExpanded = !notesExpanded"
+                      >
+                        <span x-text="notesExpanded ? 'Show less' : 'Show full notes'"></span>
+                        <span x-html="$icon(notesExpanded ? 'chevron-up' : 'chevron-down', 14)"></span>
+                      </button>
+                    </div>
+                  </section>
+
+                  <section class="detail-section variant-main" x-show="selected?.definition_id != null">
+                    <h3 class="section-title">Template</h3>
+                    <div class="template-actions">
+                      <button type="button" class="base-button size-sm variant-secondary" @click="openTemplate">
+                        <span x-html="$icon('templates', 16)"></span>
+                        <span>View</span>
+                      </button>
+                      <button
+                        type="button"
+                        class="base-button size-sm variant-secondary"
+                        title="Point this finding at a different library template"
+                        :disabled="saving || relinking || !selected?.detailed"
+                        @click="openRelink"
+                      >
+                        <span x-html="$icon('arrow-right', 16)"></span>
+                        <span>Change</span>
+                      </button>
+                    </div>
+                  </section>
+
+                  {% include "partials/raw_record.html" %}
+                </div>
+              </template>
+            </div>
+
+            <aside class="detail-sidebar">
+              <section class="detail-section variant-sidebar">
+                <h4 class="section-title">Properties</h4>
+                <dl class="detail-property-list">
+                  <div class="detail-property">
+                    <dt class="prop-key">Status</dt>
+                    <dd class="prop-value">
+                      <span
+                        class="base-badge variant-status size-md"
+                        :class="statusClass(selected?.status)"
+                      >
+                        <span class="badge-text">
+                          <span class="badge-dot" aria-hidden="true"></span>
+                          <span x-text="humanize(selected?.status)"></span>
+                        </span>
+                      </span>
+                    </dd>
+                  </div>
+                  <div class="detail-property" x-show="selected?.detailed">
+                    <dt class="prop-key">Category</dt>
+                    <dd class="prop-value">
+                      <span class="base-badge variant-category size-md">
+                        <span class="badge-text" x-text="selected?.category || 'General'"></span>
+                      </span>
+                    </dd>
+                  </div>
+                  <div class="detail-property" x-show="selected?.detailed">
+                    <dt class="prop-key">Source</dt>
+                    <dd class="prop-value font-mono">
+                      <span class="discovered-by">
+                        <span
+                          :class="isManualSource ? 'source-manual' : 'source-tool'"
+                          x-html="$icon(isManualSource ? 'user' : 'crosshair-2', 14)"
+                        ></span>
+                        <span x-text="selected?.discovered_by || 'Unassigned'"></span>
+                      </span>
+                    </dd>
+                  </div>
+                  <div class="detail-property">
+                    <dt class="prop-key">Registered at</dt>
+                    <dd class="prop-value font-mono" x-text="formatDateTime(selected?.created_at)"></dd>
+                  </div>
+                </dl>
+              </section>
+              <section class="detail-section variant-sidebar" x-show="selected?.detailed">
+                <h4 class="section-title">References / tags</h4>
+                <div class="detail-tag-list" x-show="selected?.tags?.length">
+                  <template x-for="tag in (selected?.tags || [])" :key="tag">
+                    <span class="base-badge variant-mini size-md">
+                      <span class="badge-text" x-text="tag"></span>
+                    </span>
+                  </template>
+                </div>
+                <p class="is-empty" x-show="!selected?.tags?.length">No tags yet</p>
+              </section>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- Create / Edit wizard -->
+    <template x-teleport="body">
+      <div
+        class="modal-overlay"
+        x-transition:enter="base-modal-enter"
+        x-transition:enter-start="base-modal-enter-start"
+        x-transition:enter-end="base-modal-enter-end"
+        x-transition:leave="base-modal-leave"
+        x-transition:leave-start="base-modal-leave-start"
+        x-transition:leave-end="base-modal-leave-end"
+        x-show="mode === 'create' || mode === 'edit'"
+        x-cloak
+        @click.self="!saving && closePanel()"
+        @keydown.escape.window="!$store.confirm.open && !$store.importResult.open && !$store.importPicker.open && !templateCreateOpen && (mode === 'create' || mode === 'edit') && !saving && closePanel()"
+      >
+        <div
+          class="modal-card"
+          :class="{ 'is-large': mode === 'create' }"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="finding-form-title"
+          style="max-width: min(960px, calc(100vw - 32px))"
+        >
+          <div class="modal-header">
+            <div class="modal-title-row">
+              <span class="modal-title-icon" aria-hidden="true" x-html="$icon('lightning-bolt', 16)"></span>
+              <div class="modal-title" id="finding-form-title" x-text="mode === 'create' ? 'New finding' : 'Edit finding'"></div>
+            </div>
+            <div class="modal-actions">
+              <button
+                type="button"
+                class="base-button size-sm variant-ghost"
+                title="Close (Esc)"
+                @click="closePanel"
+                :disabled="saving"
+                x-html="$icon('close', 16)"
+              ></button>
+            </div>
+          </div>
+
+          <div class="modal-body">
+            <!-- Setup step -->
+            <div class="wizard-step finding-setup" x-show="mode === 'create' && wizardStep === 'setup'">
+              <div class="form-group">
+                <label class="form-label" for="finding-asset">Target asset</label>
+                <input
+                  id="finding-asset"
+                  class="form-input"
+                  list="finding-asset-options"
+                  x-model="assetQuery"
+                  maxlength="255"
+                  placeholder="e.g. api.northwind.io"
+                  autocomplete="off"
+                  spellcheck="false"
+                  :disabled="saving"
+                />
+                <datalist id="finding-asset-options">
+                  <template x-for="asset in assets" :key="asset.id">
+                    <option :value="asset.name"></option>
+                  </template>
+                </datalist>
+                <p class="form-error" x-show="assetError" x-text="assetError"></p>
+              </div>
+
+              <div class="template-toolbar">
+                <div class="search-field">
+                  <span class="search-icon" x-html="$icon('search', 14)"></span>
+                  <input
+                    class="search-input"
+                    type="search"
+                    placeholder="Filter by title, category, or tag"
+                    x-model="templateQuery"
+                    :disabled="saving"
+                  />
+                </div>
+                <button type="button" class="base-button size-sm variant-secondary" @click="openNewTemplate" :disabled="saving">
+                  <span x-html="$icon('plus', 16)"></span>
+                  <span>New template</span>
+                </button>
+              </div>
+
+              <ul class="picker-list" x-show="filteredTemplates.length || !templates.length">
+                <template x-for="definition in filteredTemplates" :key="definition.id">
+                  <li>
+                    <button
+                      type="button"
+                      class="picker-row"
+                      @click="startFromTemplate(definition)"
+                      :disabled="saving"
+                    >
+                      <span class="picker-main">
+                        <span class="picker-title" x-text="definition.title"></span>
+                      </span>
+                      <span
+                        class="template-sev-hint"
+                        :class="'sev-' + normalizeSeverity(definition.severity)"
+                        aria-hidden="true"
+                      >
+                        <span class="template-sev-dot"></span>
+                        <span x-text="severityAbbrev(definition.severity)"></span>
+                      </span>
+                      <span class="picker-chevron" x-html="$icon('chevron-right', 14)"></span>
+                    </button>
+                  </li>
+                </template>
+                <li class="picker-empty" x-show="!templates.length">
+                  No templates yet. Use New template.
+                </li>
+              </ul>
+
+              <div
+                class="feedback-panel-wrap"
+                x-show="templates.length && !filteredTemplates.length"
+                x-cloak
+              >
+                <div class="feedback-panel">
+                  <h2 class="feedback-panel__title">No templates match this filter</h2>
+                  <p class="feedback-panel__desc">Try a broader search or clear the filter.</p>
+                  <div class="feedback-panel__actions">
+                    <button
+                      type="button"
+                      class="base-button size-md variant-secondary"
+                      @click="clearTemplateFilter"
+                      :disabled="saving"
+                    >
+                      <span x-html="$icon('filter-clear', 16)"></span>
+                      <span>Clear filters</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Compose step -->
+            <div class="wizard-step" x-show="mode === 'edit' || wizardStep === 'compose'">
+              <form class="compose-form" @submit.prevent="mode === 'create' ? saveCreate() : saveEdit()">
+                <div class="context-row">
+                  <div class="context-pill" x-show="form.asset_name">
+                    <span x-html="$icon('asset', 14)"></span>
+                    <span x-text="form.asset_name"></span>
+                  </div>
+                  <span class="context-pill" x-show="mode === 'create' && draftSourceLabel" x-text="draftSourceLabel"></span>
+                </div>
+
+                <p class="step-copy" x-show="composeNote" x-text="composeNote"></p>
+
+                <div class="form-group">
+                  <label class="form-label" for="finding-title">Title</label>
+                  <input
+                    id="finding-title"
+                    class="form-input"
+                    :class="{ 'is-locked': titleLocked }"
+                    x-model="form.title"
+                    maxlength="80"
+                    required
+                    :disabled="saving || titleLocked"
+                    autocomplete="off"
+                    spellcheck="false"
+                    placeholder="e.g. SQL Injection in Authentication Endpoint"
+                  />
+                </div>
+
+                <div class="form-group" x-show="mode === 'create' && !templateContentLocked">
+                  <span class="form-label" id="finding-severity-label">Severity</span>
+                  {{ severity_picker(labelledby="finding-severity-label") }}
+                </div>
+
+                <div class="form-group" x-show="mode === 'create' && templateContentLocked">
+                  <span class="form-label">Severity</span>
+                  <span class="base-badge variant-severity size-md" :class="'sev-' + form.severity">
+                    <span class="badge-text" x-text="severityAbbrev(form.severity)"></span>
+                  </span>
+                </div>
+
+                <div class="form-group" x-show="mode === 'edit'">
+                  <label class="form-label" for="finding-status">Status</label>
+                  <select id="finding-status" class="form-input form-select" x-model="form.status" :disabled="saving">
+                    <template x-for="st in statusOptions" :key="st">
+                      <option :value="st" x-text="humanize(st)"></option>
+                    </template>
+                  </select>
+                </div>
+
+                <div class="form-group" x-show="mode === 'create'">
+                  <label class="form-label" for="finding-category">Category</label>
+                  <input
+                    id="finding-category"
+                    class="form-input"
+                    :class="{ 'is-locked': templateContentLocked }"
+                    x-model="form.category"
+                    maxlength="24"
+                    :disabled="saving || templateContentLocked"
+                    placeholder="e.g. Injection"
+                  />
+                </div>
+
+                <div class="form-group" x-show="mode === 'create'">
+                  <label class="form-label" for="finding-description">Description</label>
+                  <textarea
+                    id="finding-description"
+                    class="form-input form-textarea"
+                    :class="{ 'is-locked': templateContentLocked }"
+                    x-model="form.description"
+                    rows="5"
+                    maxlength="5000"
+                    :disabled="saving || templateContentLocked"
+                    placeholder="What is the issue and why does it matter?"
+                  ></textarea>
+                </div>
+
+                <div class="form-group" x-show="mode === 'create'">
+                  <label class="form-label" for="finding-remediation">Remediation</label>
+                  <textarea
+                    id="finding-remediation"
+                    class="form-input form-textarea"
+                    :class="{ 'is-locked': templateContentLocked }"
+                    x-model="form.recommendation"
+                    rows="4"
+                    maxlength="5000"
+                    :disabled="saving || templateContentLocked"
+                    placeholder="How should this be fixed?"
+                  ></textarea>
+                </div>
+
+                <div class="form-group">
+                  <span class="form-label" id="finding-evidence-label">Evidence</span>
+
+                  <ol
+                    class="evidence-editor-list"
+                    x-show="form.evidencePackages.length"
+                    aria-labelledby="finding-evidence-label"
+                  >
+                    <template x-for="(pkg, index) in form.evidencePackages" :key="pkg.uid">
+                      <li class="evidence-editor-item">
+                        <button
+                          type="button"
+                          class="evidence-editor-row"
+                          :aria-label="'Edit ' + evidenceTypeLabel(pkg.type) + ' evidence'"
+                          @click="openEvidenceEditor(index)"
+                          :disabled="saving"
+                        >
+                          <span class="evidence-editor-index" x-text="'#' + (index + 1)"></span>
+                          <span class="evidence-editor-main">
+                            <span class="evidence-editor-type-label" x-text="evidenceTypeLabel(pkg.type)"></span>
+                            <span class="evidence-editor-summary" x-text="evidencePackageSummary(pkg)"></span>
+                          </span>
+                          <span class="evidence-editor-chevron" x-html="$icon('chevron-right', 14)"></span>
+                        </button>
+                        <button
+                          type="button"
+                          class="base-button size-sm variant-ghost-danger"
+                          :title="'Remove ' + evidenceTypeLabel(pkg.type) + ' evidence'"
+                          @click="removeEvidencePackage(index)"
+                          :disabled="saving"
+                          x-html="$icon('delete', 16)"
+                        ></button>
+                      </li>
+                    </template>
+                  </ol>
+
+                  <div
+                    class="evidence-type-picker"
+                    role="group"
+                    :aria-label="form.evidencePackages.length ? 'Add evidence type' : 'Evidence type'"
+                    x-show="pickingEvidenceType || !form.evidencePackages.length"
+                  >
+                    <div class="evidence-type-picker-header">
+                      <p class="evidence-type-picker-copy" x-text="form.evidencePackages.length ? 'Add another evidence type' : 'Choose an evidence type'"></p>
+                      <button
+                        type="button"
+                        class="base-button size-sm variant-ghost"
+                        x-show="form.evidencePackages.length && pickingEvidenceType"
+                        @click="hideEvidenceTypePicker"
+                        :disabled="saving"
+                      >Cancel</button>
+                    </div>
+                    <div class="evidence-type-picker-grid">
+                      <template x-for="type in evidenceTypes" :key="type.id">
+                        <button
+                          type="button"
+                          class="evidence-type-chip"
+                          :disabled="saving || !canAddEvidencePackage(form.evidencePackages, type.id)"
+                          @click="startEvidencePackage(type.id)"
+                          x-text="type.label"
+                        ></button>
+                      </template>
+                    </div>
+                  </div>
+
+                  <div class="evidence-editor-footer">
+                    <button
+                      type="button"
+                      class="base-button size-sm variant-secondary"
+                      x-show="form.evidencePackages.length && !pickingEvidenceType"
+                      :disabled="saving || evidencePackagesItemCount(form.evidencePackages) >= MAX_EVIDENCE_BLOCKS"
+                      @click="showEvidenceTypePicker"
+                    >
+                      <span x-html="$icon('plus', 16)"></span>
+                      <span>Add evidence</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="finding-source">Source</label>
+                  <input
+                    id="finding-source"
+                    class="form-input"
+                    x-model="form.discovered_by"
+                    maxlength="24"
+                    placeholder="e.g. Burp Suite, Nuclei (optional)"
+                    :disabled="saving"
+                  />
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="finding-notes">Notes</label>
+                  <textarea
+                    id="finding-notes"
+                    class="form-input form-textarea"
+                    x-model="form.notes"
+                    rows="3"
+                    maxlength="2000"
+                    placeholder="Instance notes for this engagement (not the shared template)"
+                    :disabled="saving"
+                  ></textarea>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <div class="footer-left">
+              <button
+                type="button"
+                class="base-button size-md variant-ghost"
+                x-show="mode === 'create' && wizardStep === 'compose'"
+                @click="goBack"
+                :disabled="saving"
+              >Back</button>
+            </div>
+            <div class="modal-footer-right">
+              <button
+                type="button"
+                class="base-button size-md variant-secondary"
+                @click="closePanel"
+                :disabled="saving"
+              >Cancel</button>
+              <button
+                type="button"
+                class="base-button size-md variant-primary"
+                x-show="mode === 'edit' || wizardStep === 'compose'"
+                :disabled="saving || !canSubmitCompose"
+                :class="{ 'is-loading': saving }"
+                @click="mode === 'create' ? saveCreate() : saveEdit()"
+              >
+                <span x-show="saving" class="btn-spinner" x-html="$icon('loading', 16)"></span>
+                <span x-show="!saving" x-html="$icon(mode === 'create' ? 'plus' : 'check', 16)"></span>
+                <span x-text="saving ? 'Saving…' : (mode === 'create' ? 'Create finding' : 'Save changes')"></span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- NewTemplateModal (nested from New finding setup) -->
+    <template x-teleport="body">
+      <div
+        class="modal-overlay new-template-overlay"
+        x-transition:enter="base-modal-enter"
+        x-transition:enter-start="base-modal-enter-start"
+        x-transition:enter-end="base-modal-enter-end"
+        x-transition:leave="base-modal-leave"
+        x-transition:leave-start="base-modal-leave-start"
+        x-transition:leave-end="base-modal-leave-end"
+        x-show="templateCreateOpen"
+        x-cloak
+        @click.self="!templateSaving && closeNewTemplate()"
+        @keydown.escape.window="!$store.confirm.open && !$store.importResult.open && !$store.importPicker.open && templateCreateOpen && !templateSaving && closeNewTemplate()"
+      >
+        <div
+          class="modal-card"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="finding-new-template-title"
+          style="max-width: min(960px, calc(100vw - 32px))"
+        >
+          <div class="modal-header">
+            <div class="modal-title-row">
+              <span class="modal-title-icon" aria-hidden="true" x-html="$icon('templates', 16)"></span>
+              <div class="modal-title" id="finding-new-template-title">New template</div>
+            </div>
+            <div class="modal-actions">
+              <button
+                type="button"
+                class="base-button size-sm variant-ghost"
+                title="Close (Esc)"
+                @click="closeNewTemplate"
+                :disabled="templateSaving"
+                x-html="$icon('close', 16)"
+              ></button>
+            </div>
+          </div>
+
+          <div class="modal-body">
+            <div class="wizard-step">
+              <form class="compose-form" @submit.prevent="saveNewTemplate()">
+                <div class="form-group">
+                  <span class="form-label" id="finding-new-tpl-severity-label">Baseline severity</span>
+                  {{ severity_picker(
+                    labelledby="finding-new-tpl-severity-label",
+                    options="templateSeverityOptions",
+                    select="selectTemplateSeverity",
+                    preview="templateSeverityPreview",
+                    description="templateSeverityDescription",
+                    disabled="templateSaving"
+                  ) }}
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="finding-new-tpl-title">Title</label>
+                  <input
+                    id="finding-new-tpl-title"
+                    class="form-input"
+                    x-model="templateForm.title"
+                    maxlength="80"
+                    required
+                    autocomplete="off"
+                    spellcheck="false"
+                    placeholder="e.g. SQL Injection in Authentication Endpoint"
+                    :disabled="templateSaving"
+                  />
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label" for="finding-new-tpl-category">Category</label>
+                    <input
+                      id="finding-new-tpl-category"
+                      class="form-input"
+                      list="finding-new-tpl-category-options"
+                      x-model="templateForm.category"
+                      maxlength="24"
+                      placeholder="e.g. Injection"
+                      autocomplete="off"
+                      spellcheck="false"
+                      :disabled="templateSaving"
+                    />
+                    <datalist id="finding-new-tpl-category-options">
+                      <template x-for="cat in templateCategories" :key="cat">
+                        <option :value="cat"></option>
+                      </template>
+                    </datalist>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="finding-new-tpl-tags">Tags</label>
+                    <input
+                      id="finding-new-tpl-tags"
+                      class="form-input"
+                      x-model="templateForm.tagsText"
+                      maxlength="280"
+                      placeholder="cwe-89, owasp-a03, auth"
+                      autocomplete="off"
+                      spellcheck="false"
+                      :disabled="templateSaving"
+                    />
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="finding-new-tpl-description">Description</label>
+                  <textarea
+                    id="finding-new-tpl-description"
+                    class="form-input form-textarea"
+                    x-model="templateForm.description"
+                    rows="5"
+                    maxlength="5000"
+                    required
+                    placeholder="What is the vulnerability class and why does it matter?"
+                    :disabled="templateSaving"
+                  ></textarea>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="finding-new-tpl-remediation">Remediation</label>
+                  <textarea
+                    id="finding-new-tpl-remediation"
+                    class="form-input form-textarea"
+                    x-model="templateForm.recommendation"
+                    rows="5"
+                    maxlength="5000"
+                    required
+                    placeholder="Reusable fix guidance for teams instantiating this template"
+                    :disabled="templateSaving"
+                  ></textarea>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <div class="footer-left"></div>
+            <div class="modal-footer-right">
+              <button
+                type="button"
+                class="base-button size-md variant-secondary"
+                @click="closeNewTemplate"
+                :disabled="templateSaving"
+              >Cancel</button>
+              <button
+                type="button"
+                class="base-button size-md variant-primary"
+                :disabled="templateSaving || !canSubmitTemplate"
+                :class="{ 'is-loading': templateSaving }"
+                @click="saveNewTemplate"
+              >
+                <span x-show="templateSaving" class="btn-spinner" x-html="$icon('loading', 16)"></span>
+                <span x-show="!templateSaving" x-html="$icon('plus', 16)"></span>
+                <span x-text="templateSaving ? 'Saving…' : 'Create template'"></span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- RelinkTemplateModal -->
+    <template x-teleport="body">
+      <div
+        class="modal-overlay"
+        x-transition:enter="base-modal-enter"
+        x-transition:enter-start="base-modal-enter-start"
+        x-transition:enter-end="base-modal-enter-end"
+        x-transition:leave="base-modal-leave"
+        x-transition:leave-start="base-modal-leave-start"
+        x-transition:leave-end="base-modal-leave-end"
+        x-show="relinkOpen"
+        x-cloak
+        @click.self="!relinking && closeRelink()"
+        @keydown.escape.window="!$store.confirm.open && !$store.importResult.open && !$store.importPicker.open && relinkOpen && !relinking && closeRelink()"
+      >
+        <div
+          class="modal-card is-large"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="finding-relink-title"
+          style="max-width: min(960px, calc(100vw - 32px))"
+        >
+          <div class="modal-header">
+            <div class="modal-title-row">
+              <span class="modal-title-icon" aria-hidden="true" x-html="$icon('templates', 16)"></span>
+              <div class="modal-title" id="finding-relink-title">Change template</div>
+            </div>
+            <div class="modal-actions">
+              <button
+                type="button"
+                class="base-button size-sm variant-ghost"
+                title="Close (Esc)"
+                @click="closeRelink"
+                :disabled="relinking"
+                x-html="$icon('close', 16)"
+              ></button>
+            </div>
+          </div>
+
+          <div class="modal-body">
+            <div class="wizard-step relink-setup">
+              <div class="search-field relink-search">
+                <span class="search-icon" x-html="$icon('search', 14)"></span>
+                <input
+                  class="search-input"
+                  type="search"
+                  placeholder="Filter by title, category, or tag"
+                  x-model="relinkQuery"
+                  :disabled="relinking"
+                />
+              </div>
+
+              <ul class="picker-list">
+                <template x-for="definition in filteredRelinkTemplates" :key="definition.id">
+                  <li>
+                    <button
+                      type="button"
+                      class="picker-row"
+                      :disabled="relinking || isRelinkUnavailable(definition)"
+                      :title="relinkRowTitle(definition)"
+                      :aria-label="relinkRowLabel(definition)"
+                      @click="requestRelink(definition)"
+                    >
+                      <span class="picker-main">
+                        <span class="picker-title" x-text="definition.title"></span>
+                        <span class="picker-meta" x-show="isRelinkCurrent(definition)">Current</span>
+                        <span class="picker-meta is-warn" x-show="!isRelinkCurrent(definition) && isRelinkTaken(definition)">
+                          Already on this asset
+                        </span>
+                      </span>
+                      <span
+                        class="template-sev-hint"
+                        :class="'sev-' + normalizeSeverity(definition.severity)"
+                        aria-hidden="true"
+                      >
+                        <span class="template-sev-dot"></span>
+                        <span x-text="severityAbbrev(definition.severity)"></span>
+                      </span>
+                      <span
+                        class="picker-chevron"
+                        x-show="!isRelinkUnavailable(definition)"
+                        x-html="$icon('chevron-right', 14)"
+                      ></span>
+                    </button>
+                  </li>
+                </template>
+                <li class="picker-empty" x-show="!filteredRelinkTemplates.length">
+                  No other templates match this filter.
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <div class="footer-left"></div>
+            <div class="modal-footer-right">
+              <button
+                type="button"
+                class="base-button size-md variant-secondary"
+                @click="closeRelink"
+                :disabled="relinking"
+              >Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- EvidenceEditorModal -->
+    <template x-teleport="body">
+      <div
+        class="modal-overlay evidence-editor-overlay"
+        x-transition:enter="base-modal-enter"
+        x-transition:enter-start="base-modal-enter-start"
+        x-transition:enter-end="base-modal-enter-end"
+        x-transition:leave="base-modal-leave"
+        x-transition:leave-start="base-modal-leave-start"
+        x-transition:leave-end="base-modal-leave-end"
+        x-show="evidenceEditor"
+        x-cloak
+        @click.self="closeEvidenceEditor"
+        @keydown.escape.window="!$store.confirm.open && !$store.importResult.open && !$store.importPicker.open && evidenceEditor && closeEvidenceEditor()"
+      >
+        <div
+          class="modal-card is-large evidence-editor-card"
+          role="dialog"
+          aria-modal="true"
+          :aria-label="evidenceEditor ? evidenceTypeLabel(evidenceEditor.draft.type) : 'Evidence'"
+          style="max-width: min(1024px, calc(100vw - 48px)); height: min(88vh, 900px); max-height: min(88vh, 900px)"
+        >
+          <div class="modal-header">
+            <div class="modal-title-row">
+              <span
+                class="modal-title-icon"
+                aria-hidden="true"
+                x-html="$icon(evidenceEditor ? evidenceTypeIcon(evidenceEditor.draft.type) : 'code', 16)"
+              ></span>
+              <div
+                class="modal-title"
+                x-text="evidenceEditor ? evidenceTypeLabel(evidenceEditor.draft.type) : 'Evidence'"
+              ></div>
+            </div>
+            <div class="modal-actions">
+              <button
+                type="button"
+                class="base-button size-sm variant-ghost"
+                title="Close (Esc)"
+                @click="closeEvidenceEditor"
+                x-html="$icon('close', 16)"
+              ></button>
+            </div>
+          </div>
+
+          <div class="modal-body evidence-editor-body">
+            <template x-if="evidenceEditor">
+              <div
+                class="evidence-workspace"
+                :class="{ 'is-split': evidenceEditorSplit }"
+              >
+                <template x-if="evidenceEditorSplit">
+                  <div class="evidence-split-host">
+                    <template x-for="(field, fieldIndex) in evidenceEditor.draft.fields" :key="'split-' + fieldIndex">
+                      <div class="evidence-panel">
+                        <div class="evidence-panel-header">
+                          <span
+                            class="evidence-panel-label"
+                            :title="field.key || ('Field ' + (fieldIndex + 1))"
+                            x-text="field.key || ('Field ' + (fieldIndex + 1))"
+                          ></span>
+                        </div>
+                        <div class="evidence-panel-body">
+                          <textarea
+                            class="evidence-panel-input"
+                            x-model="evidenceEditor.draft.fields[fieldIndex].content"
+                            spellcheck="false"
+                            :placeholder="evidencePlaceholder(evidenceEditor.draft.type, fieldIndex)"
+                            :aria-label="field.key || ('Evidence field ' + (fieldIndex + 1))"
+                          ></textarea>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+                <template x-if="!evidenceEditorSplit">
+                  <div class="evidence-stack">
+                    <div class="evidence-stack-field is-grow">
+                      <template x-for="(field, fieldIndex) in evidenceEditor.draft.fields" :key="'stack-' + fieldIndex">
+                        <div
+                          class="evidence-panel-body"
+                          :class="fieldIndex === evidenceEditor.draft.fields.length - 1 ? 'is-grow' : 'is-compact'"
+                        >
+                          <textarea
+                            class="evidence-panel-input"
+                            x-model="evidenceEditor.draft.fields[fieldIndex].content"
+                            spellcheck="false"
+                            :rows="evidenceFieldRows(evidenceEditor.draft.type, fieldIndex)"
+                            :placeholder="evidencePlaceholder(evidenceEditor.draft.type, fieldIndex)"
+                            :aria-label="field.key || 'Evidence content'"
+                          ></textarea>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </template>
+          </div>
+
+          <div class="modal-footer">
+            <div class="footer-left"></div>
+            <div class="modal-footer-right">
+              <button
+                type="button"
+                class="base-button size-md variant-secondary"
+                @click="closeEvidenceEditor"
+              >Cancel</button>
+              <button
+                type="button"
+                class="base-button size-md variant-primary"
+                :disabled="!evidenceEditorCanSave"
+                @click="saveEvidenceEditor"
+              >
+                <span x-html="$icon('check', 16)"></span>
+                <span>Done</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+{% endblock %}
+{% block page_scripts %}
+  <script src="/static/js/controllers/findings.js?v=asset-scope1"></script>
+{% endblock %}

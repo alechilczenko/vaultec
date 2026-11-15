@@ -1,0 +1,46 @@
+{# SeverityPicker — Alpine bindings overridable for nested forms
+   Use: {% from "partials/severity_picker.html" import severity_picker %}
+        {{ severity_picker(labelledby="definition-severity-label") }}
+#}
+{% macro severity_picker(
+  labelledby,
+  options="severityOptions",
+  select="selectSeverity",
+  preview="severityPreview",
+  description="severityDescription",
+  disabled="saving"
+) -%}
+<div
+  class="severity-picker"
+  role="radiogroup"
+  aria-labelledby="{{ labelledby }}"
+>
+  <div class="severity-options">
+    <template x-for="opt in {{ options }}" :key="opt.id">
+      <button
+        type="button"
+        class="severity-option"
+        :class="'sev-' + opt.id + (opt.selected ? ' selected' : '')"
+        role="radio"
+        :aria-checked="opt.selected"
+        :aria-label="opt.label"
+        @click="{{ select }}(opt.id)"
+        @mouseenter="{{ preview }} = opt.id"
+        @mouseleave="{{ preview }} = ''"
+        @focus="{{ preview }} = opt.id"
+        @blur="{{ preview }} = ''"
+        :disabled="{{ disabled }}"
+      >
+        <span
+          class="base-badge variant-severity size-md"
+          :class="'sev-' + opt.id"
+          aria-hidden="true"
+        >
+          <span class="badge-text" x-text="opt.abbrev"></span>
+        </span>
+      </button>
+    </template>
+  </div>
+  <p class="severity-desc" x-text="{{ description }}"></p>
+</div>
+{%- endmacro %}

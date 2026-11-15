@@ -1,0 +1,29 @@
+{# Sortable column header. Use: {% import ... as sort %} {% call sort.col('title') %}Label{% endcall %} #}
+{% macro col(key, align='') -%}
+<div
+  class="sort-header-cell{% if align == 'right' %} col-right{% elif align == 'center' %} col-center{% endif %}"
+  role="columnheader"
+  :aria-sort="headerSortAria('{{ key }}')"
+>
+  <button
+    type="button"
+    class="header-col"
+    :class="{ 'is-sorted': sortKey === '{{ key }}' }"
+    @click="handleSort('{{ key }}')"
+  >
+    {{ caller() }}
+    <template x-if="sortKey === '{{ key }}'">
+      <span
+        class="visually-hidden"
+        x-text="', sorted ' + (sortDir === 'asc' ? 'ascending' : 'descending')"
+      ></span>
+    </template>
+    <span
+      class="sort-icon"
+      :class="{ active: sortKey === '{{ key }}' }"
+      aria-hidden="true"
+      x-html="headerSortIconHtml('{{ key }}')"
+    ></span>
+  </button>
+</div>
+{%- endmacro %}

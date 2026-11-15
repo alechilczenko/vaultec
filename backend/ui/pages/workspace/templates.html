@@ -1,0 +1,486 @@
+{% extends "workspace/shell.html" %}
+{% import "partials/sort_header_macro.html" as sort %}
+{% from "partials/collection_states.html" import collection_states %}
+{% from "partials/severity_picker.html" import severity_picker %}
+{% block title %}Templates{% endblock %}
+{% block page_head %}
+  <link rel="stylesheet" href="/static/css/pages/templates.css" />
+{% endblock %}
+{% block content %}
+  <div class="templates-page workspace" x-data="templatesPage" x-cloak>
+    <template x-teleport="#page-actions">
+      <div class="page-actions-inner" x-show="!loading && items.length">
+        <button
+          type="button"
+          class="base-button size-md variant-secondary"
+          @click="exportLibrary"
+          :disabled="loading || saving"
+        >
+          <span x-html="$icon('export', 16)"></span>
+          <span>Export</span>
+        </button>
+        <button
+          type="button"
+          class="base-button size-md variant-secondary"
+          @click="pickImport"
+          :disabled="loading || saving"
+        >
+          <span x-html="$icon('import', 16)"></span>
+          <span>Import</span>
+        </button>
+        <button
+          type="button"
+          class="base-button size-md variant-primary"
+          @click="startCreate"
+          :disabled="loading || saving"
+        >
+          <span x-html="$icon('plus', 16)"></span>
+          <span>New template</span>
+        </button>
+      </div>
+    </template>
+
+    <div class="collection-toolbar" x-show="!loading && (items.length || query || filtersActive)">
+      <div class="toolbar-left">
+        <div class="search-wrap">
+          <div class="search-field">
+            <span class="search-icon" x-html="$icon('search', 14)"></span>
+            <input
+              class="search-input"
+              type="search"
+              placeholder="Title or category"
+              maxlength="100"
+              x-model="query"
+              :disabled="loading || saving"
+            />
+          </div>
+        </div>
+        <div class="collection-filter-selects" x-show="items.length || filtersActive">
+          <label class="filter-select-wrap" x-show="presentSeverities.length">
+            <span class="visually-hidden">Filter by severity</span>
+            <select
+              class="toolbar-select"
+              aria-label="Filter by severity"
+              :value="filters.severity"
+              @change="setFilter('severity', $event.target.value)"
+            >
+              <option value="all">All severities</option>
+              <template x-for="sev in presentSeverities" :key="sev">
+                <option :value="sev" x-text="severityAbbrev(sev)"></option>
+              </template>
+            </select>
+          </label>
+          <label class="filter-select-wrap" x-show="categoryOptions.length">
+            <span class="visually-hidden">Filter by category</span>
+            <select
+              class="toolbar-select"
+              aria-label="Filter by category"
+              :value="filters.category"
+              @change="setFilter('category', $event.target.value)"
+            >
+              <option value="all">All categories</option>
+              <template x-for="cat in categoryOptions" :key="cat">
+                <option :value="cat" x-text="cat"></option>
+              </template>
+            </select>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <p class="error-banner" x-show="error" role="alert">
+      <span x-html="$icon('warning', 16)"></span>
+      <span x-text="error"></span>
+    </p>
+
+    {{ collection_states(
+      loading_title="Loading templates…",
+      loading_desc="Fetching template library.",
+      empty_title="No templates yet",
+      empty_desc="Create a template or import a JSON file to build your library. Findings and assets need an assessment; templates do not.",
+      empty_create_label="New template",
+      nomatch_title="No templates match these filters",
+      nomatch_desc="Try a broader search or clear the severity and category filters."
+    ) }}
+
+    <section class="table-region" x-show="!loading && filteredCount" aria-label="Templates">
+      <div class="table-container collection-table">
+        <div class="table-scroll">
+          <div
+            class="table-scroll-inner"
+            role="grid"
+            aria-label="templates"
+            :aria-rowcount="filteredCount"
+          >
+            <div class="table-header" role="row">
+              {% call sort.col('title') %}
+                <span x-text="'Templates (' + filteredCount + ')'"></span>
+              {% endcall %}
+              {% call sort.col('category') %}Category{% endcall %}
+              {% call sort.col('severity') %}Severity{% endcall %}
+              {% call sort.col('lastUpdated') %}Registered{% endcall %}
+            </div>
+            <div class="table-body">
+              <template x-for="item in displayedItems" :key="item.id">
+                <div
+                  class="base-row"
+                  role="row"
+                  tabindex="0"
+                  :class="{ selected: selected && selected.id === item.id }"
+                  :aria-label="item.title"
+                  :aria-selected="selected && selected.id === item.id"
+                  @click="toggleSelect(item)"
+                  @dblclick="openDetail(item)"
+                  @keydown.enter.prevent="openDetail(item)"
+                  @keydown.space.prevent="toggleSelect(item)"
+                >
+                  <div class="cell-text" role="gridcell" x-text="item.title" :title="item.title"></div>
+                  <div class="cell-inline" role="gridcell">
+                    <span class="base-badge variant-category size-sm">
+                      <span class="badge-text" x-text="item.category || 'General'"></span>
+                    </span>
+                  </div>
+                  <div class="cell-inline" role="gridcell">
+                    <span
+                      class="base-badge variant-severity size-sm"
+                      :class="'sev-' + item.severity"
+                    >
+                      <span class="badge-text" x-text="severityAbbrev(item.severity)"></span>
+                    </span>
+                  </div>
+                  <div class="cell-meta" role="gridcell" x-text="formatDate(item.created_at)"></div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+        {% include "partials/pagination_bar.html" %}
+      </div>
+    </section>
+
+    <!-- Template detail modal -->
+    <template x-teleport="body">
+      <div
+        class="detail-overlay"
+        x-transition:enter="detail-modal-enter"
+        x-transition:enter-start="detail-modal-enter-start"
+        x-transition:enter-end="detail-modal-enter-end"
+        x-transition:leave="detail-modal-leave"
+        x-transition:leave-start="detail-modal-leave-start"
+        x-transition:leave-end="detail-modal-leave-end"
+        x-show="mode === 'detail' && selected"
+        x-cloak
+        @click.self="closePanel"
+        @keydown.escape.window="!$store.confirm.open && !$store.importResult.open && !$store.importPicker.open && mode === 'detail' && closePanel()"
+      >
+        <div
+          class="detail-container"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="tpl-detail-title"
+          tabindex="-1"
+          :style="selected ? { '--detail-accent': 'var(--sev-' + selected.severity + ')' } : {}"
+        >
+          <header class="detail-header">
+            <div class="detail-heading">
+              <div class="detail-title-row">
+                <span class="detail-title-icon" aria-hidden="true" x-html="$icon('templates', 16)"></span>
+                <h2 class="detail-title" id="tpl-detail-title" x-text="selected?.title" :title="selected?.title"></h2>
+              </div>
+            </div>
+            <div class="detail-actions">
+              <button
+                type="button"
+                class="base-button size-sm variant-ghost"
+                title="Edit template"
+                @click="startEdit"
+                :disabled="saving"
+                x-html="$icon('edit', 16)"
+              ></button>
+              <button
+                type="button"
+                class="base-button size-sm variant-ghost-danger"
+                title="Delete template"
+                @click="remove"
+                :disabled="saving"
+                x-html="$icon('delete', 16)"
+              ></button>
+              <div class="action-divider"></div>
+              <button
+                type="button"
+                class="base-button size-sm variant-ghost"
+                title="Close (Esc)"
+                @click="closePanel"
+                x-html="$icon('close', 16)"
+              ></button>
+            </div>
+          </header>
+          <div class="detail-body">
+            <div class="detail-main">
+              <section class="detail-section variant-main">
+                <h3 class="section-title">Description</h3>
+                <div
+                  class="detail-prose"
+                  x-show="selected?.description"
+                  :class="{ 'is-expanded': descriptionExpanded, 'is-collapsible': proseCollapsible(selected?.description) }"
+                >
+                  <div
+                    class="detail-prose-body"
+                    :class="{ 'is-clamped': proseCollapsible(selected?.description) && !descriptionExpanded }"
+                  >
+                    <template x-for="(block, index) in proseParagraphs(selected?.description)" :key="index">
+                      <p x-text="block"></p>
+                    </template>
+                  </div>
+                  <button
+                    type="button"
+                    class="detail-prose-toggle"
+                    x-show="proseCollapsible(selected?.description)"
+                    :aria-expanded="descriptionExpanded"
+                    @click="descriptionExpanded = !descriptionExpanded"
+                  >
+                    <span x-text="descriptionExpanded ? 'Show less' : 'Show full description'"></span>
+                    <span x-html="$icon(descriptionExpanded ? 'chevron-up' : 'chevron-down', 14)"></span>
+                  </button>
+                </div>
+                <p class="is-empty" x-show="!selected?.description">No description provided.</p>
+              </section>
+
+              <section class="detail-section variant-main">
+                <h3 class="section-title">Severity</h3>
+                <span
+                  class="base-badge variant-severity size-lg"
+                  :class="'sev-' + selected?.severity"
+                >
+                  <span class="badge-text" x-text="severityLabel(selected?.severity)"></span>
+                </span>
+              </section>
+
+              <section class="detail-section variant-main">
+                <h3 class="section-title">Remediation</h3>
+                <div
+                  class="detail-prose"
+                  x-show="selected?.recommendation"
+                  :class="{ 'is-expanded': remediationExpanded, 'is-collapsible': proseCollapsible(selected?.recommendation) }"
+                >
+                  <div
+                    class="detail-prose-body"
+                    :class="{ 'is-clamped': proseCollapsible(selected?.recommendation) && !remediationExpanded }"
+                  >
+                    <template x-for="(block, index) in proseParagraphs(selected?.recommendation)" :key="index">
+                      <p x-text="block"></p>
+                    </template>
+                  </div>
+                  <button
+                    type="button"
+                    class="detail-prose-toggle"
+                    x-show="proseCollapsible(selected?.recommendation)"
+                    :aria-expanded="remediationExpanded"
+                    @click="remediationExpanded = !remediationExpanded"
+                  >
+                    <span x-text="remediationExpanded ? 'Show less' : 'Show full remediation'"></span>
+                    <span x-html="$icon(remediationExpanded ? 'chevron-up' : 'chevron-down', 14)"></span>
+                  </button>
+                </div>
+                <p class="is-empty" x-show="!selected?.recommendation">No remediation guidance yet.</p>
+              </section>
+
+              {% include "partials/raw_record.html" %}
+            </div>
+
+            <aside class="detail-sidebar">
+              <section class="detail-section variant-sidebar">
+                <h4 class="section-title">Properties</h4>
+                <dl class="detail-property-list">
+                  <div class="detail-property">
+                    <dt class="prop-key">Category</dt>
+                    <dd class="prop-value">
+                      <span class="base-badge variant-category size-md">
+                        <span class="badge-text" x-text="selected?.category || 'General'"></span>
+                      </span>
+                    </dd>
+                  </div>
+                  <div class="detail-property">
+                    <dt class="prop-key">Registered at</dt>
+                    <dd class="prop-value font-mono" x-text="formatDateTime(selected?.created_at)"></dd>
+                  </div>
+                </dl>
+              </section>
+              <section class="detail-section variant-sidebar">
+                <h4 class="section-title">References / tags</h4>
+                <div class="detail-tag-list" x-show="selected?.tags?.length">
+                  <template x-for="tag in (selected?.tags || [])" :key="tag">
+                    <span class="base-badge variant-mini size-md">
+                      <span class="badge-text" x-text="tag"></span>
+                    </span>
+                  </template>
+                </div>
+                <p class="is-empty" x-show="!selected?.tags?.length">No tags yet</p>
+              </section>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- New template wizard -->
+    <template x-teleport="body">
+      <div
+        class="modal-overlay"
+        x-transition:enter="base-modal-enter"
+        x-transition:enter-start="base-modal-enter-start"
+        x-transition:enter-end="base-modal-enter-end"
+        x-transition:leave="base-modal-leave"
+        x-transition:leave-start="base-modal-leave-start"
+        x-transition:leave-end="base-modal-leave-end"
+        x-show="mode === 'create' || mode === 'edit'"
+        x-cloak
+        @click.self="!saving && closePanel()"
+        @keydown.escape.window="!$store.confirm.open && !$store.importResult.open && !$store.importPicker.open && (mode === 'create' || mode === 'edit') && !saving && closePanel()"
+      >
+        <div
+          class="modal-card"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="tpl-form-title"
+          style="max-width: min(960px, calc(100vw - 32px))"
+        >
+          <div class="modal-header">
+            <div class="modal-title-row">
+              <span class="modal-title-icon" aria-hidden="true" x-html="$icon('templates', 16)"></span>
+              <div class="modal-title" id="tpl-form-title" x-text="mode === 'create' ? 'New template' : 'Edit template'"></div>
+            </div>
+            <div class="modal-actions">
+              <button
+                type="button"
+                class="base-button size-sm variant-ghost"
+                title="Close (Esc)"
+                @click="closePanel"
+                :disabled="saving"
+                x-html="$icon('close', 16)"
+              ></button>
+            </div>
+          </div>
+
+          <div class="modal-body">
+            <div class="wizard-step">
+              <p class="step-copy" x-show="mode === 'edit'">
+                Changes apply to every finding that instantiates it.
+              </p>
+              <form class="compose-form" @submit.prevent="mode === 'create' ? saveCreate() : saveEdit()">
+                <div class="form-group">
+                  <span class="form-label" id="definition-severity-label">Baseline severity</span>
+                  {{ severity_picker(labelledby="definition-severity-label") }}
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="definition-title">Title</label>
+                  <input
+                    id="definition-title"
+                    class="form-input"
+                    x-model="form.title"
+                    maxlength="80"
+                    required
+                    autocomplete="off"
+                    spellcheck="false"
+                    placeholder="e.g. SQL Injection in Authentication Endpoint"
+                    :disabled="saving"
+                  />
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label" for="definition-category">Category</label>
+                    <input
+                      id="definition-category"
+                      class="form-input"
+                      list="definition-category-options"
+                      x-model="form.category"
+                      maxlength="24"
+                      placeholder="e.g. Injection"
+                      autocomplete="off"
+                      spellcheck="false"
+                      :disabled="saving"
+                    />
+                    <datalist id="definition-category-options">
+                      <template x-for="cat in categories" :key="cat">
+                        <option :value="cat"></option>
+                      </template>
+                    </datalist>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="definition-tags">Tags</label>
+                    <input
+                      id="definition-tags"
+                      class="form-input"
+                      x-model="form.tagsText"
+                      maxlength="280"
+                      placeholder="cwe-89, owasp-a03, auth"
+                      autocomplete="off"
+                      spellcheck="false"
+                      :disabled="saving"
+                    />
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="definition-description">Description</label>
+                  <textarea
+                    id="definition-description"
+                    class="form-input form-textarea"
+                    x-model="form.description"
+                    rows="5"
+                    maxlength="5000"
+                    required
+                    placeholder="What is the vulnerability class and why does it matter?"
+                    :disabled="saving"
+                  ></textarea>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label" for="definition-remediation">Remediation</label>
+                  <textarea
+                    id="definition-remediation"
+                    class="form-input form-textarea"
+                    x-model="form.recommendation"
+                    rows="5"
+                    maxlength="5000"
+                    required
+                    placeholder="Reusable fix guidance for teams instantiating this template"
+                    :disabled="saving"
+                  ></textarea>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <div class="footer-left"></div>
+            <div class="modal-footer-right">
+              <button
+                type="button"
+                class="base-button size-md variant-secondary"
+                @click="closePanel"
+                :disabled="saving"
+              >Cancel</button>
+              <button
+                type="button"
+                class="base-button size-md variant-primary"
+                :disabled="saving || !canSubmit"
+                :class="{ 'is-loading': saving }"
+                @click="mode === 'create' ? saveCreate() : saveEdit()"
+              >
+                <span x-show="saving" class="btn-spinner" x-html="$icon('loading', 16)"></span>
+                <span x-show="!saving" x-html="$icon(mode === 'create' ? 'plus' : 'check', 16)"></span>
+                <span x-text="saving ? 'Saving…' : (mode === 'create' ? 'Create template' : 'Save changes')"></span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+{% endblock %}
+{% block page_scripts %}
+  <script src="/static/js/controllers/templates.js?v=nav-abort2"></script>
+{% endblock %}

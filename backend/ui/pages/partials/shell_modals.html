@@ -1,0 +1,450 @@
+{# Notes / Setup / Admin — shell-level wizard modals. #}
+
+{# —— Notes —— #}
+<template x-teleport="body">
+  <div
+    class="modal-overlay"
+    x-transition:enter="base-modal-enter"
+    x-transition:enter-start="base-modal-enter-start"
+    x-transition:enter-end="base-modal-enter-end"
+    x-transition:leave="base-modal-leave"
+    x-transition:leave-start="base-modal-leave-start"
+    x-transition:leave-end="base-modal-leave-end"
+    x-show="notesOpen"
+    x-cloak
+    @click.self="!notesBusy && closeNotes()"
+    @keydown.escape.window="!$store.confirm.open && !$store.importResult.open && !$store.importPicker.open && notesOpen && !notesBusy && closeNotes()"
+  >
+    <div
+      class="modal-card notes-shell"
+      :class="{ 'is-large': notesReaderShell }"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="notes-modal-title"
+      :style="notesReaderShell
+        ? 'max-width: min(1024px, calc(100vw - 48px))'
+        : 'max-width: min(960px, calc(100vw - 32px))'"
+    >
+      <div class="modal-header">
+        <div class="modal-title-row">
+          <span class="modal-title-icon" aria-hidden="true" x-html="$icon('notes', 16)"></span>
+          <div class="modal-title" id="notes-modal-title">Notes</div>
+        </div>
+        <div class="modal-actions">
+          <button
+            type="button"
+            class="base-button size-sm variant-ghost"
+            title="Close (Esc)"
+            @click="closeNotes"
+            :disabled="Boolean(notesBusy)"
+            x-html="$icon('close', 16)"
+          ></button>
+        </div>
+      </div>
+
+      <div class="modal-body">
+        <div class="wizard-step">
+          <div class="panel">
+            <div class="compose" x-show="notesMode !== 'list'" x-cloak>
+              <form class="compose-form" @submit.prevent="saveNote">
+                <div class="form-group">
+                  <label class="form-label" for="note-title">Title</label>
+                  <input
+                    id="note-title"
+                    class="form-input"
+                    x-model="notesDraft.title"
+                    maxlength="100"
+                    required
+                    autocomplete="off"
+                    spellcheck="false"
+                    placeholder="e.g. Auth bypass repro checklist"
+                    :disabled="Boolean(notesBusy)"
+                  />
+                </div>
+                <div class="form-group is-grow">
+                  <label class="form-label" for="note-content">Content</label>
+                  <textarea
+                    id="note-content"
+                    class="form-input form-textarea"
+                    x-model="notesDraft.content"
+                    maxlength="5000"
+                    rows="12"
+                    required
+                    spellcheck="false"
+                    placeholder="Commands, payloads, hosts to revisit…"
+                    :disabled="Boolean(notesBusy)"
+                  ></textarea>
+                </div>
+              </form>
+            </div>
+
+            <p class="list-status" x-show="notesMode === 'list' && notesLoading" x-cloak>
+              Loading notes…
+            </p>
+
+            <div
+              class="feedback-panel-wrap"
+              x-show="notesMode === 'list' && !notesLoading && notes.length === 0"
+              x-cloak
+            >
+              <div class="feedback-panel">
+                <h2 class="feedback-panel__title">No notes yet</h2>
+                <p class="feedback-panel__desc">Notes stay on this assessment.</p>
+              </div>
+            </div>
+
+            <div
+              class="browser"
+              x-show="notesMode === 'list' && !notesLoading && notes.length > 0"
+              x-cloak
+            >
+              <aside class="note-list" aria-label="Notes">
+                <template x-for="note in notes" :key="note.id">
+                  <button
+                    type="button"
+                    class="note-item"
+                    :class="{ active: notesSelectedId === note.id }"
+                    @click="notesSelectedId = note.id"
+                  >
+                    <span class="note-item-title" x-text="note.title"></span>
+                    <span class="note-item-preview" x-text="notePreview(note)"></span>
+                  </button>
+                </template>
+              </aside>
+
+              <section class="note-detail" aria-live="polite" x-show="notesSelected" x-cloak>
+                <header class="detail-header">
+                  <h3
+                    class="detail-title"
+                    :title="notesSelected?.title"
+                    x-text="notesSelected?.title"
+                  ></h3>
+                  <div class="detail-actions">
+                    <button
+                      type="button"
+                      class="base-button size-sm variant-ghost"
+                      title="Edit note"
+                      :disabled="Boolean(notesBusy)"
+                      @click="startNoteEdit(notesSelected)"
+                      x-html="$icon('edit', 16)"
+                    ></button>
+                    <button
+                      type="button"
+                      class="base-button size-sm variant-ghost-danger"
+                      title="Delete note"
+                      :disabled="Boolean(notesBusy)"
+                      @click="deleteNote(notesSelected)"
+                      x-html="$icon('delete', 16)"
+                    ></button>
+                  </div>
+                </header>
+                <pre
+                  class="note-body"
+                  x-show="notesSelected?.content"
+                  x-text="notesSelected?.content"
+                ></pre>
+                <p class="detail-empty" x-show="notesSelected && !notesSelected.content">
+                  No content in this note.
+                </p>
+              </section>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <div class="footer-left">
+          <button
+            type="button"
+            class="base-button size-sm variant-ghost"
+            x-show="notesMode !== 'list'"
+            :disabled="Boolean(notesBusy)"
+            @click="cancelNoteCompose"
+          >
+            <span x-html="$icon('chevron-left', 16)"></span>
+            <span>Back</span>
+          </button>
+        </div>
+        <div class="modal-footer-right">
+          <button
+            type="button"
+            class="base-button size-md variant-secondary"
+            :disabled="Boolean(notesBusy)"
+            @click="notesMode === 'list' ? closeNotes() : cancelNoteCompose()"
+            x-text="notesMode === 'list' ? 'Close' : 'Cancel'"
+          ></button>
+          <button
+            type="button"
+            class="base-button size-md variant-primary"
+            x-show="notesMode === 'list'"
+            :disabled="notesLoading"
+            @click="startNoteCreate"
+          >
+            <span x-html="$icon('plus', 16)"></span>
+            <span>New note</span>
+          </button>
+          <button
+            type="button"
+            class="base-button size-md variant-primary"
+            x-show="notesMode === 'create'"
+            :disabled="!notesCanSave"
+            :class="{ 'is-loading': notesBusy === 'create' }"
+            @click="saveNote"
+          >
+            <span
+              x-show="notesBusy === 'create'"
+              class="btn-spinner"
+              x-html="$icon('loading', 16)"
+            ></span>
+            <span x-show="notesBusy !== 'create'" x-html="$icon('plus', 16)"></span>
+            <span x-text="notesBusy === 'create' ? 'Creating…' : 'Create note'"></span>
+          </button>
+          <button
+            type="button"
+            class="base-button size-md variant-primary"
+            x-show="notesMode === 'edit'"
+            :disabled="!notesCanSave"
+            :class="{ 'is-loading': notesBusy === 'edit' }"
+            @click="saveNote"
+          >
+            <span
+              x-show="notesBusy === 'edit'"
+              class="btn-spinner"
+              x-html="$icon('loading', 16)"
+            ></span>
+            <span x-show="notesBusy !== 'edit'" x-html="$icon('edit', 16)"></span>
+            <span x-text="notesBusy === 'edit' ? 'Saving…' : 'Save note'"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+{# —— New assessment —— #}
+<template x-teleport="body">
+  <div
+    class="modal-overlay"
+    x-transition:enter="base-modal-enter"
+    x-transition:enter-start="base-modal-enter-start"
+    x-transition:enter-end="base-modal-enter-end"
+    x-transition:leave="base-modal-leave"
+    x-transition:leave-start="base-modal-leave-start"
+    x-transition:leave-end="base-modal-leave-end"
+    x-show="setupOpen"
+    x-cloak
+    @click.self="!setupBusy && closeSetup()"
+    @keydown.escape.window="!$store.confirm.open && !$store.importResult.open && !$store.importPicker.open && setupOpen && !setupBusy && closeSetup()"
+  >
+    <div
+      class="modal-card setup-shell"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="setup-modal-title"
+      style="max-width: min(960px, calc(100vw - 32px))"
+    >
+      <div class="modal-header">
+        <div class="modal-title-row">
+          <span class="modal-title-icon" aria-hidden="true" x-html="$icon('project', 16)"></span>
+          <div class="modal-title" id="setup-modal-title">New assessment</div>
+        </div>
+        <div class="modal-actions">
+          <button
+            type="button"
+            class="base-button size-sm variant-ghost"
+            title="Close (Esc)"
+            @click="closeSetup"
+            :disabled="setupBusy"
+            x-html="$icon('close', 16)"
+          ></button>
+        </div>
+      </div>
+
+      <div class="modal-body">
+        <div class="wizard-step">
+          <form class="compose-form" @submit.prevent="submitSetup">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label" for="assessment-name">Assessment name</label>
+                <input
+                  id="assessment-name"
+                  class="form-input"
+                  x-model="setupDraft.name"
+                  placeholder="e.g. pentest-2026"
+                  required
+                  minlength="3"
+                  maxlength="100"
+                  autocomplete="off"
+                  spellcheck="false"
+                  :disabled="setupBusy"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="assessment-client">Client</label>
+                <input
+                  id="assessment-client"
+                  class="form-input"
+                  x-model="setupDraft.clientName"
+                  placeholder="e.g. Acme Corp"
+                  required
+                  minlength="2"
+                  maxlength="100"
+                  autocomplete="off"
+                  spellcheck="false"
+                  :disabled="setupBusy"
+                />
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <div class="footer-left"></div>
+        <div class="modal-footer-right">
+          <button
+            type="button"
+            class="base-button size-md variant-secondary"
+            @click="closeSetup"
+            :disabled="setupBusy"
+          >Cancel</button>
+          <button
+            type="button"
+            class="base-button size-md variant-primary"
+            :disabled="!setupCanSubmit"
+            :class="{ 'is-loading': setupBusy }"
+            @click="submitSetup"
+          >
+            <span x-show="setupBusy" class="btn-spinner" x-html="$icon('loading', 16)"></span>
+            <span x-show="!setupBusy" x-html="$icon('plus', 16)"></span>
+            <span x-text="setupBusy ? 'Creating…' : 'Create assessment'"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+{# —— Maintenance —— #}
+<template x-teleport="body">
+  <div
+    class="modal-overlay"
+    x-transition:enter="base-modal-enter"
+    x-transition:enter-start="base-modal-enter-start"
+    x-transition:enter-end="base-modal-enter-end"
+    x-transition:leave="base-modal-leave"
+    x-transition:leave-start="base-modal-leave-start"
+    x-transition:leave-end="base-modal-leave-end"
+    x-show="adminOpen"
+    x-cloak
+    @click.self="!adminBusy && closeAdmin()"
+    @keydown.escape.window="!$store.confirm.open && !$store.importResult.open && !$store.importPicker.open && adminOpen && !adminBusy && closeAdmin()"
+  >
+    <div
+      class="modal-card admin-shell"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="admin-modal-title"
+      style="max-width: min(960px, calc(100vw - 32px))"
+    >
+      <div class="modal-header">
+        <div class="modal-title-row">
+          <span class="modal-title-icon" aria-hidden="true" x-html="$icon('admin', 16)"></span>
+          <div class="modal-title" id="admin-modal-title">Maintenance</div>
+        </div>
+        <div class="modal-actions">
+          <button
+            type="button"
+            class="base-button size-sm variant-ghost"
+            title="Close (Esc)"
+            @click="closeAdmin"
+            :disabled="Boolean(adminBusy)"
+            x-html="$icon('close', 16)"
+          ></button>
+        </div>
+      </div>
+
+      <div class="modal-body">
+        <div class="wizard-step">
+          <div class="action-list">
+            <article class="action-card">
+              <div class="action-copy">
+                <h3 class="action-title">Reset workspace</h3>
+                <p class="action-desc">
+                  Purges all active audit data (findings, assets, notes) and resets the workspace
+                  context to empty. Preserves the global template library.
+                </p>
+                <p class="action-hint" x-show="adminResetIdle">
+                  No active assessment. Nothing to reset.
+                </p>
+              </div>
+              <button
+                type="button"
+                class="base-button size-md variant-danger"
+                :disabled="Boolean(adminBusy) || adminResetIdle"
+                :title="adminResetIdle ? 'No active assessment. Nothing to reset' : undefined"
+                :class="{ 'is-loading': adminBusy === 'reset' }"
+                @click="resetWorkspace"
+              >
+                <span
+                  x-show="adminBusy === 'reset'"
+                  class="btn-spinner"
+                  x-html="$icon('loading', 16)"
+                ></span>
+                <span x-show="adminBusy !== 'reset'" x-html="$icon('delete', 16)"></span>
+                <span>Reset workspace</span>
+              </button>
+            </article>
+
+            <article class="action-card">
+              <div class="action-copy">
+                <h3 class="action-title">Clear template library</h3>
+                <p class="action-desc">
+                  Wipes every template in the global library. Use
+                  <strong>Reset workspace</strong> first if this engagement still has findings.
+                </p>
+                <p class="action-hint" x-show="adminTemplatesBlocked">
+                  Blocked while
+                  <span x-text="findingsCount"></span>
+                  finding<span x-text="findingsCount === 1 ? '' : 's'"></span>
+                  remain in the active workspace.
+                </p>
+                <p class="action-hint" x-show="!adminTemplatesBlocked && adminTemplatesEmpty">
+                  Template library is already empty.
+                </p>
+              </div>
+              <button
+                type="button"
+                class="base-button size-md variant-danger"
+                :disabled="adminTemplatesDisabled"
+                :title="adminTemplatesDisableTitle || undefined"
+                :class="{ 'is-loading': adminBusy === 'templates' }"
+                @click="clearTemplates"
+              >
+                <span
+                  x-show="adminBusy === 'templates'"
+                  class="btn-spinner"
+                  x-html="$icon('loading', 16)"
+                ></span>
+                <span x-show="adminBusy !== 'templates'" x-html="$icon('delete', 16)"></span>
+                <span>Clear templates</span>
+              </button>
+            </article>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <div class="footer-left"></div>
+        <div class="modal-footer-right">
+          <button
+            type="button"
+            class="base-button size-md variant-secondary"
+            @click="closeAdmin"
+            :disabled="Boolean(adminBusy)"
+          >Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>

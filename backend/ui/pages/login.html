@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Sign in{% endblock %}
+{% block head %}
+  <link rel="stylesheet" href="/static/css/pages/login.css" />
+{% endblock %}
+{% block body %}
+  <div class="auth-layout">
+    <div class="login-wrapper" x-data="loginPage" x-cloak>
+      <div class="login-card">
+        <div class="login-card-face">
+          <div class="login-brand">
+            <img
+              class="login-brand-mark"
+              src="/static/img/logo-mark.jpeg"
+              alt=""
+              width="48"
+              height="48"
+            />
+          </div>
+
+          <form class="login-form" @submit.prevent="submit">
+            <p class="error-banner" x-show="error" x-text="error" role="alert"></p>
+
+            <div class="form-group">
+              <label class="form-label" for="username">Username</label>
+              <div class="input-wrap">
+                <span class="input-icon" x-html="$icon('user', 16)"></span>
+                <input
+                  id="username"
+                  class="form-input has-leading-icon"
+                  name="username"
+                  x-model="username"
+                  maxlength="50"
+                  required
+                  autocomplete="off"
+                  spellcheck="false"
+                  autofocus
+                  :disabled="loading"
+                  placeholder="Username"
+                />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="password">Password</label>
+              <div class="input-wrap">
+                <span class="input-icon" x-html="$icon('lock', 16)"></span>
+                <input
+                  id="password"
+                  class="form-input has-leading-icon"
+                  name="password"
+                  type="password"
+                  x-model="password"
+                  maxlength="128"
+                  required
+                  autocomplete="current-password"
+                  :disabled="loading"
+                  placeholder="Password"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              class="base-button size-lg variant-primary btn-submit"
+              :disabled="loading"
+              :class="{ 'is-loading': loading }"
+            >
+              <span x-show="loading" class="btn-spinner" x-html="$icon('loading', 16)"></span>
+              <span x-text="loading ? 'Entering…' : 'Enter workspace'"></span>
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+{% block scripts %}
+  <script src="/static/js/session.js"></script>
+  <script src="/static/js/controllers/login.js"></script>
+{% endblock %}

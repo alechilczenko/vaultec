@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block head %}
+  <link rel="stylesheet" href="/static/css/pages/shell.css" />
+  {% block page_head %}{% endblock %}
+{% endblock %}
+{% block body %}
+  <div class="signal-stage" x-data="shellPage" x-cloak>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <div class="signal-card">
+      <header class="section-bar">
+        <div class="section-lead">
+          <img
+            class="brand-mark"
+            src="/static/img/logo-mark.jpeg"
+            alt=""
+            width="34"
+            height="34"
+          />
+          <p class="workspace-identity">
+            <strong x-text="projectLabel" id="ws-project-label"></strong>
+            <span x-show="identityHint" x-text="identityHint" id="ws-identity-hint"></span>
+          </p>
+          <script>
+            (function () {
+              try {
+                var w = JSON.parse(sessionStorage.getItem("vmp:cache:workspace") || "null");
+                if (!w) return;
+                var label = document.getElementById("ws-project-label");
+                var hint = document.getElementById("ws-identity-hint");
+                if (w.status === "active") {
+                  if (label) label.textContent = w.name || "Workspace";
+                  if (hint && w.client_name) hint.textContent = w.client_name;
+                } else {
+                  if (label) label.textContent = "No active assessment";
+                  if (hint) hint.textContent = "Templates stay available.";
+                }
+              } catch (e) {}
+            })();
+          </script>
+          <nav class="sections-nav" aria-label="Workspace">
+            <a
+              href="/workspace/findings"
+              class="section-tab"
+              x-show="!findingsLocked"
+              :class="{ 'is-current': current === 'findings' }"
+            >Findings</a>
+            <button
+              type="button"
+              class="section-tab"
+              x-show="findingsLocked"
+              disabled
+              :title="findingsLockTitle"
+            >Findings</button>
+
+            <a
+              href="/workspace/templates"
+              class="section-tab"
+              :class="{ 'is-current': current === 'templates' }"
+            >Templates</a>
+
+            <a
+              href="/workspace/assets"
+              class="section-tab"
+              x-show="!isEmpty"
+              :class="{ 'is-current': current === 'assets' }"
+            >Assets</a>
+            <button
+              type="button"
+              class="section-tab"
+              x-show="isEmpty"
+              disabled
+              :title="engagementLockTitle"
+            >Assets</button>
+
+            <button
+              type="button"
+              class="section-tab setup-tab"
+              x-show="isEmpty && !loading"
+              @click="openSetup"
+            >New assessment</button>
+          </nav>
+        </div>
+        <div id="page-actions" class="page-actions" aria-live="polite">
+          {% block page_actions %}{% endblock %}
+        </div>
+      </header>
+
+      <main id="main-content" class="card-main" tabindex="-1">
+        <p class="shell-banner" x-show="error" x-text="error" role="alert"></p>
+        {% block content %}{% endblock %}
+      </main>
+
+      <footer class="card-foot">
+        <button
+          type="button"
+          class="foot-btn"
+          :class="{ 'is-current': notesOpen }"
+          :disabled="isEmpty"
+          :title="isEmpty ? engagementLockTitle : undefined"
+          @click="openNotes"
+        >
+          <span x-html="$icon('notes', 16)"></span>
+          <span class="foot-btn-label">Notes</span>
+        </button>
+        <button
+          type="button"
+          class="foot-btn"
+          :class="{ 'is-current': adminOpen }"
+          @click="openAdmin"
+        >
+          <span x-html="$icon('admin', 16)"></span>
+          <span class="foot-btn-label">Admin</span>
+        </button>
+        <button type="button" class="sign-out" @click="logout">
+          <span x-html="$icon('logout', 16)"></span>
+          <span class="foot-btn-label">Sign out</span>
+        </button>
+      </footer>
+    </div>
+
+    {% include "partials/shell_modals.html" %}
+  </div>
+{% endblock %}
+{% block scripts %}
+  <script src="/static/js/session.js?v=nav-abort2"></script>
+  <script src="/static/js/controllers/shell.js?v=nav-abort2"></script>
+  {% block page_scripts %}{% endblock %}
+{% endblock %}

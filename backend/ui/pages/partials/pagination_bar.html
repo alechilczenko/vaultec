@@ -1,0 +1,39 @@
+<nav class="pagination-bar" aria-label="Pagination">
+  <span class="pagination-meta" x-text="paginationMetaLabel"></span>
+  <div class="pagination-controls">
+    <button
+      type="button"
+      class="page-nav-btn page-nav-arrow"
+      :disabled="currentPage <= 1 || totalPages <= 1"
+      aria-label="Previous page"
+      @click="goToPage(currentPage - 1)"
+    >Previous</button>
+    <div class="pagination-pages" x-show="totalPages > 1">
+      <template x-for="item in paginationPageItems" :key="item.key">
+        <span class="pagination-slot">
+          <span
+            class="pagination-ellipsis"
+            x-show="item.type === 'ellipsis'"
+            aria-hidden="true"
+          >…</span>
+          <button
+            type="button"
+            class="page-nav-btn"
+            x-show="item.type === 'page'"
+            :class="{ active: item.value === currentPage }"
+            :aria-current="item.value === currentPage ? 'page' : null"
+            @click="goToPage(item.value)"
+            x-text="item.value"
+          ></button>
+        </span>
+      </template>
+    </div>
+    <button
+      type="button"
+      class="page-nav-btn page-nav-arrow"
+      :disabled="currentPage >= totalPages || totalPages <= 1"
+      aria-label="Next page"
+      @click="goToPage(currentPage + 1)"
+    >Next</button>
+  </div>
+</nav>

@@ -1,0 +1,27 @@
+{# RawRecordBlock — expects Alpine: rawRecordContent, rawRecordLineLabel, rawCopied, copyRawRecord #}
+<details class="raw-record" x-show="rawRecordContent">
+  <summary>
+    <span class="raw-chevron" x-html="$icon('chevron-right', 16)"></span>
+    <span class="raw-title">Raw record</span>
+  </summary>
+  <figure class="evidence-block">
+    <figcaption class="evidence-header">
+      <span class="evidence-type" title="JSON">
+        <span class="evidence-type-icon" x-html="$icon('code', 14)"></span>
+        <span class="evidence-type-text">JSON</span>
+      </span>
+      <span class="evidence-lines" x-text="rawRecordLineLabel"></span>
+      <button
+        type="button"
+        class="evidence-copy"
+        :class="{ copied: rawCopied }"
+        :aria-label="rawCopied ? 'Copied' : 'Copy JSON'"
+        @click="copyRawRecord"
+      >
+        <span x-html="$icon(rawCopied ? 'check' : 'copy', 14)"></span>
+        <span x-text="rawCopied ? 'Copied' : 'Copy'"></span>
+      </button>
+    </figcaption>
+    <pre class="evidence-code"><code x-text="rawRecordContent"></code></pre>
+  </figure>
+</details>

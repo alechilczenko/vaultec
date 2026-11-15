@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Workspace{% endblock %}</title>
+  <link rel="icon" href="/static/img/favicon.svg?v=blade4" type="image/svg+xml" />
+  <link rel="icon" href="/static/img/favicon.png?v=blade4" type="image/png" sizes="32x32" />
+  <link rel="apple-touch-icon" href="/static/img/apple-touch-icon.png?v=blade4" />
+  <link rel="stylesheet" href="/static/css/main.css?v=dup-title5" />
+  <link rel="stylesheet" href="/static/css/ui.css?v=import-picker" />
+  <style>[x-cloak] { display: none !important; }</style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+  {% block body %}{% endblock %}
+
+  <div
+    class="toast-region"
+    x-data
+    x-cloak
+    role="status"
+    aria-live="polite"
+  >
+    <template x-for="item in $store.toast.items" :key="item.id">
+      <div
+        class="toast"
+        :class="'tone-' + item.tone"
+        :role="item.tone === 'danger' || item.tone === 'warning' ? 'alert' : 'status'"
+        x-transition:enter="toast-enter"
+        x-transition:enter-start="toast-enter-start"
+        x-transition:enter-end="toast-enter-end"
+        x-transition:leave="toast-leave"
+        x-transition:leave-start="toast-leave-start"
+        x-transition:leave-end="toast-leave-end"
+      >
+        <span class="toast-glyph" aria-hidden="true" x-html="$icon($store.toast.iconFor(item.tone), 18)"></span>
+        <span class="toast-message" x-text="item.message"></span>
+        <button
+          type="button"
+          class="toast-dismiss"
+          aria-label="Dismiss"
+          @click="$store.toast.dismiss(item.id)"
+          x-html="$icon('close', 14)"
+        ></button>
+      </div>
+    </template>
+  </div>
+
+  {# Pre-import picker — dropzone + expected JSON shape #}
+  <div x-data x-cloak>
+    <template x-if="$store.importPicker.open">
+      <div
+        class="modal-overlay"
+        x-transition:enter="base-modal-enter"
+        x-transition:enter-start="base-modal-enter-start"
+        x-transition:enter-end="base-modal-enter-end"
+        x-transition:leave="base-modal-leave"
+        x-transition:leave-start="base-modal-leave-start"
+        x-transition:leave-end="base-modal-leave-end"
+        @click.self="!$store.importPicker.busy && $store.importPicker.close()"
+        @keydown.escape.window="!$store.confirm.open && !$store.importResult.open && $store.importPicker.open && !$store.importPicker.busy && $store.importPicker.close()"
+      >
+        <div
+          class="modal-card"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="import-picker-title"
+          style="max-width: min(560px, calc(100vw - 32px))"
+        >
+          <div class="modal-header">
+            <div class="modal-title-row">
+              <span class="modal-title-icon" aria-hidden="true" x-html="$icon('import', 16)"></span>
+              <div class="modal-title" id="import-picker-title" x-text="$store.importPicker.title"></div>
+            </div>
+            <div class="modal-actions">
+              <button
+                id="import-picker-close-btn"
+                type="button"
+                class="base-button size-sm variant-ghost"
+                title="Close (Esc)"
+                :disabled="$store.importPicker.busy"
+                @click="$store.importPicker.close()"
+                x-html="$icon('close', 16)"
+              ></button>
+            </div>
+          </div>
+          <div class="modal-body import-picker-body">
+            <label
+              class="import-dropzone"
+              :class="{
+                'is-dragging': $store.importPicker.isDragging,
+                'has-file': Boolean($store.importPicker.fileName),
+                'is-busy': $store.importPicker.busy
+              }"
+              @dragenter.prevent="$store.importPicker.onDragEnter()"
+              @dragover.prevent="$store.importPicker.onDragEnter()"
+              @dragleave.prevent="$store.importPicker.onDragLeave()"
+              @drop.prevent="$store.importPicker.onDrop($event)"
+            >
+              <input
+                type="file"
+                class="import-dropzone-input"
+                accept=".json,application/json"
+                :disabled="$store.importPicker.busy"
+                @change="$store.importPicker.onFileChange($event)"
+              />
+              <span
+                class="import-dropzone-icon"
+                :class="{ 'is-spinning': $store.importPicker.busy }"
+                aria-hidden="true"
+                x-html="$icon($store.importPicker.busy ? 'loading' : 'import', 16)"
+              ></span>
+              <span class="import-dropzone-copy">
+                <span
+                  class="import-dropzone-title"
+                  :title="$store.importPicker.fileName || undefined"
+                  x-text="
+                    $store.importPicker.busy
+                      ? 'Importing…'
+                      : ($store.importPicker.fileName || 'Drop a JSON file here, or click to browse')
+                  "
+                ></span>
+                <span
+                  class="import-dropzone-hint"
+                  x-text="
+                    $store.importPicker.busy
+                      ? 'Please wait'
+                      : ($store.importPicker.fileName ? 'Click to replace' : 'Accepts .json')
+                  "
+                ></span>
+              </span>
+            </label>
+
+            <details class="import-schema-help" x-show="$store.importPicker.schemaSample">
+              <summary>Expected shape</summary>
+              <pre class="import-schema-sample" x-text="$store.importPicker.schemaSample"></pre>
+            </details>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  {# Import result report — toast summary + scannable detail list #}
+  <div x-data x-cloak>
+    <template x-if="$store.importResult.open">
+      <div
+        class="import-result-overlay"
+        x-transition:enter="confirm-fade"
+        x-transition:enter-start="confirm-fade-start"
+        x-transition:enter-end="confirm-fade-end"
+        x-transition:leave="confirm-fade"
+        x-transition:leave-start="confirm-fade-end"
+        x-transition:leave-end="confirm-fade-start"
+        @click.self="$store.importResult.close()"
+        @keydown.escape.window="$store.importResult.close()"
+      >
+        <div
+          class="import-result-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="import-result-title"
+          aria-describedby="import-result-summary"
+          tabindex="-1"
+          x-transition:enter="confirm-rise"
+          x-transition:enter-start="confirm-rise-start"
+          x-transition:enter-end="confirm-rise-end"
+          x-transition:leave="confirm-rise"
+          x-transition:leave-start="confirm-rise-end"
+          x-transition:leave-end="confirm-rise-start"
+        >
+          <div class="import-result-header">
+            <div class="import-result-copy">
+              <h2 id="import-result-title" class="import-result-title" x-text="$store.importResult.title"></h2>
+              <p
+                id="import-result-summary"
+                class="import-result-summary"
+                x-show="$store.importResult.summary"
+                x-text="$store.importResult.summary"
+              ></p>
+            </div>
+            <button
+              id="import-result-close-btn"
+              type="button"
+              class="base-button size-sm variant-ghost"
+              title="Close (Esc)"
+              @click="$store.importResult.close()"
+              x-html="$icon('close', 16)"
+            ></button>
+          </div>
+          <div class="import-result-body" x-show="$store.importResult.hasSections">
+            <template x-for="(section, sIdx) in $store.importResult.sections" :key="sIdx">
+              <section class="import-result-section">
+                <h3 class="import-result-section-label" x-text="section.label"></h3>
+                <ul class="import-result-list">
+                  <template x-for="(item, iIdx) in section.items" :key="iIdx">
+                    <li class="import-result-item" x-text="item"></li>
+                  </template>
+                </ul>
+              </section>
+            </template>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  {# Confirm dialog — needs x-data so Alpine evaluates x-if / $store #}
+  <div x-data x-cloak>
+    <template x-if="$store.confirm.open">
+      <div
+        class="confirm-overlay"
+        x-transition:enter="confirm-fade"
+        x-transition:enter-start="confirm-fade-start"
+        x-transition:enter-end="confirm-fade-end"
+        x-transition:leave="confirm-fade"
+        x-transition:leave-start="confirm-fade-end"
+        x-transition:leave-end="confirm-fade-start"
+        @click.self="$store.confirm.cancel()"
+        @keydown.escape.window="$store.confirm.cancel()"
+      >
+        <div
+          class="confirm-dialog"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="confirm-title"
+          aria-describedby="confirm-message"
+          tabindex="-1"
+          x-transition:enter="confirm-rise"
+          x-transition:enter-start="confirm-rise-start"
+          x-transition:enter-end="confirm-rise-end"
+          x-transition:leave="confirm-rise"
+          x-transition:leave-start="confirm-rise-end"
+          x-transition:leave-end="confirm-rise-start"
+        >
+          <div class="confirm-heading">
+            <div
+              class="confirm-icon"
+              x-show="$store.confirm.isDanger"
+              aria-hidden="true"
+              x-html="$icon('warning', 20)"
+            ></div>
+            <div class="confirm-copy">
+              <h2 id="confirm-title" class="confirm-title" x-text="$store.confirm.title"></h2>
+              <p
+                id="confirm-message"
+                class="confirm-message"
+                x-show="$store.confirm.message"
+                x-text="$store.confirm.message"
+              ></p>
+            </div>
+          </div>
+          <div class="confirm-actions">
+            <button
+              id="confirm-cancel-btn"
+              type="button"
+              class="base-button size-md variant-secondary"
+              :disabled="$store.confirm.loading"
+              @click="$store.confirm.cancel()"
+            >
+              <span x-html="$icon('close', 16)"></span>
+              <span>Cancel</span>
+            </button>
+            <button
+              type="button"
+              class="base-button size-md"
+              :class="['variant-' + $store.confirm.confirmVariant, { 'is-loading': $store.confirm.loading }]"
+              :disabled="$store.confirm.loading"
+              @click="$store.confirm.confirm()"
+            >
+              <span x-html="$icon($store.confirm.confirmIcon, 16)"></span>
+              <span x-text="$store.confirm.confirmLabel"></span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <script src="/static/js/api.js?v=nav-abort2"></script>
+  <script src="/static/js/pageCache.js"></script>
+  <script src="/static/js/listPagination.js?v=sort1"></script>
+  <script src="/static/js/iconPaths.js"></script>
+  <script src="/static/js/icons.js"></script>
+  <script src="/static/js/toast.js?v=toast-clip"></script>
+  <script src="/static/js/confirmDialog.js"></script>
+  <script src="/static/js/importPicker.js?v=1"></script>
+  <script src="/static/js/importResult.js?v=1"></script>
+  <script src="/static/js/importFeedback.js?v=import-report"></script>
+  {% block scripts %}{% endblock %}
+  <script defer src="/static/js/vendor/alpine.min.js"></script>
+</body>
+</html>
