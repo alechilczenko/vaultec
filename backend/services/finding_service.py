@@ -404,6 +404,7 @@ def get_vulnerabilities_joined(db: Session, skip: int = 0, limit: int = 100, sea
 
     query = db.query(
         models.Vulnerability.created_at,
+        models.Vulnerability.asset_id,
         models.Asset.name.label("asset_name"),
         models.VulnerabilityDefinition.title,
         models.VulnerabilityDefinition.severity,
