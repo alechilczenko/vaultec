@@ -385,7 +385,7 @@
                         <figcaption class="evidence-header">
                           <span class="evidence-type">
                             <span class="evidence-type-icon" x-html="$icon(activeEvidence?.type === 'http' ? 'globe' : 'code', 14)"></span>
-                            <span class="evidence-type-text" x-text="(activeEvidence?.type || 'general').toUpperCase() + (activeEvidence?.label ? ' · ' + activeEvidence.label : '')"></span>
+                            <span class="evidence-type-text" x-text="evidenceBlockCaption(activeEvidence)"></span>
                           </span>
                         </figcaption>
                         <pre class="evidence-code"><code x-text="activeEvidence?.content"></code></pre>
@@ -1277,5 +1277,5 @@
   </div>
 {% endblock %}
 {% block page_scripts %}
-  <script src="/static/js/controllers/findings.js?v=asset-scope1"></script>
+  <script src="/static/js/controllers/findings.js?v=evidence-caption1"></script>
 {% endblock %}

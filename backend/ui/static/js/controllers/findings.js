@@ -306,6 +306,18 @@ document.addEventListener("alpine:init", () => {
     return EVIDENCE_TYPES.find((item) => item.id === id)?.label || id;
   }
 
+  function evidenceBlockCaption(block) {
+    const type = normalizeEvidenceType(block?.type);
+    const typeText = evidenceTypeLabel(type).toUpperCase();
+    const label = String(block?.label || "").trim();
+    if (!label) return typeText;
+    const labelKey = label.toLowerCase();
+    if (labelKey === type || labelKey === evidenceTypeLabel(type).toLowerCase()) {
+      return typeText;
+    }
+    return `${typeText} · ${label}`;
+  }
+
   function evidenceTypeIcon(value) {
     return normalizeEvidenceType(value) === "http" ? "globe" : "code";
   }
@@ -770,6 +782,7 @@ document.addEventListener("alpine:init", () => {
     proseCollapsible,
     normalizeSeverity,
     evidenceTypeLabel,
+    evidenceBlockCaption,
     evidenceTypeIcon,
     evidencePackageSummary,
     canAddEvidencePackage,
