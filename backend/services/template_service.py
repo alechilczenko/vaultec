@@ -184,8 +184,8 @@ def update_definition(db: Session, def_id: int, update_data: dict):
 
 def import_definitions(db: Session, data: schemas.TemplatesImport):
     """Existing ids are updated in place. Rows without a matching id are inserted."""
-    created_ids = []
-    updated_ids = []
+    created = []
+    updated = []
 
     for item in data.templates:
         existing = get_definition_by_id(db, item.id) if item.id is not None else None
@@ -198,7 +198,7 @@ def import_definitions(db: Session, data: schemas.TemplatesImport):
             existing.tags = item.tags
             if item.category is not None:
                 existing.category = item.category
-            updated_ids.append(existing.id)
+            updated.append({"id": existing.id, "title": existing.title})
         else:
             new_defn = models.VulnerabilityDefinition(
                 title=item.title,
@@ -210,14 +210,14 @@ def import_definitions(db: Session, data: schemas.TemplatesImport):
             )
             db.add(new_defn)
             db.flush()
-            created_ids.append(new_defn.id)
+            created.append({"id": new_defn.id, "title": new_defn.title})
             continue
         db.flush()
     try:
         db.commit()
         logger.info(
             f"Templates bulk import finished: "
-            f"{len(created_ids)} created, {len(updated_ids)} updated"
+            f"{len(created)} created, {len(updated)} updated"
         )
     except Exception:
         db.rollback()
@@ -227,14 +227,14 @@ def import_definitions(db: Session, data: schemas.TemplatesImport):
     return {
         "message": "Templates import completed successfully.",
         "summary": {
-            "created": len(created_ids),
-            "updated": len(updated_ids),
-            "total": len(data.templates)
+            "created": len(created),
+            "updated": len(updated),
+            "total": len(data.templates),
         },
         "details": {
-            "new_templates": created_ids,
-            "updated_templates": updated_ids
-        }
+            "created": created,
+            "updated": updated,
+        },
     }
 
 
