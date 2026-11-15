@@ -513,14 +513,17 @@ def bulk_process_vulnerabilities(db: Session, import_data: schemas.Vulnerability
         })
 
     if errors:
-        preview = "; ".join(errors[:8])
-        extra = f" (+{len(errors) - 8} more)" if len(errors) > 8 else ""
         logger.warning(
-            f"Findings import cancelled before write: {len(errors)} issue(s) in {total} row(s)"
+            "Findings import cancelled before write: "
+            f"{len(errors)} issue(s) in {total} row(s): {'; '.join(errors[:8])}"
+            + (f" (+{len(errors) - 8} more)" if len(errors) > 8 else "")
         )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Import cancelled. {preview}{extra}",
+            detail={
+                "message": "Import cancelled",
+                "errors": errors,
+            },
         )
 
     try:

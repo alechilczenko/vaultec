@@ -5,11 +5,11 @@ Licensed under GNU AGPLv3 - See the LICENSE file for details
 """
 
 from fastapi import APIRouter, Depends, Query, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from sqlalchemy.orm import Session
 from typing import Annotated, Optional
 from database.db import get_db
-from services import finding_service
+from services import finding_service, report_service
 import schemas
 from schemas.common import SafeIntID
 from dependencies.clean_query import get_clean_query
@@ -60,6 +60,38 @@ def export_findings(db: Session = Depends(get_db)):
     )
 
 
+@router.get(
+    "/report",
+    responses={
+        200: {
+            "content": {"application/pdf": {}},
+            "description": "Findings report PDF",
+        },
+        503: {
+            "description": "PDF renderer unavailable (Chrome/Chromium missing).",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": (
+                            "PDF renderer unavailable. Install Google Chrome "
+                            "or Chromium, or set CHROME_PATH."
+                        )
+                    }
+                }
+            },
+        },
+    },
+)
+def get_findings_report(db: Session = Depends(get_db)):
+    """Findings report PDF: same envelope as /export, rendered to A4."""
+    pdf_bytes, filename = report_service.build_findings_report_pdf(db)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @router.post("/create", response_model=schemas.VulnerabilityFullRead, status_code=status.HTTP_201_CREATED)
 def create_vulnerabilities(vulnerability: schemas.VulnerabilityCreate, db: Session = Depends(get_db)):
     return finding_service.process_vulnerability_entry(db, vulnerability)
@@ -78,10 +110,12 @@ def create_vulnerabilities(vulnerability: schemas.VulnerabilityCreate, db: Sessi
             "content": {
                 "application/json": {
                     "example": {
-                        "detail": (
-                            "Import cancelled. Row 2: asset 'missing.example' not found. "
-                            "Please register it first."
-                        )
+                        "detail": {
+                            "message": "Import cancelled",
+                            "errors": [
+                                "Row 2: asset 'nope.example' not found. Please register it first."
+                            ],
+                        }
                     }
                 }
             },
