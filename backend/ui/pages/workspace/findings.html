@@ -575,7 +575,10 @@
                     <option :value="asset.name"></option>
                   </template>
                 </datalist>
-                <p class="form-error" x-show="assetError" x-text="assetError"></p>
+                <p class="error-banner" x-show="assetError" x-cloak role="alert">
+                  <span x-html="$icon('warning', 16)"></span>
+                  <span x-text="assetError"></span>
+                </p>
               </div>
 
               <div class="template-toolbar">
