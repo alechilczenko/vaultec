@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Findings</title>
+  <style>
+    :root {
+      --ink: #1a1a1a;
+      --muted: #4a4a4a;
+      --faint: #595959;
+      --rule: #222222;
+      --surface: #efefef;
+      --brand: #584979;
+      --rail: #a43d50;
+      --sev-critical-bg: #f6d6e4;
+      --sev-critical-ink: #8f2d55;
+      --sev-high-bg: #f3d9c4;
+      --sev-high-ink: #8a4b22;
+      --sev-medium-bg: #ead9b0;
+      --sev-medium-ink: #6f5720;
+      --sev-low-bg: #d5e4f2;
+      --sev-low-ink: #2f5f8a;
+      --sev-info-bg: #e8e8e8;
+      --sev-info-ink: #444444;
+    }
+
+    * { box-sizing: border-box; }
+
+    @page {
+      size: A4;
+      margin: 16mm 15mm 16mm 15mm;
+      @bottom-left {
+        content: "PAGE | " counter(page);
+        font-family: "Liberation Sans", "Noto Sans", "DejaVu Sans", Helvetica, Arial, sans-serif;
+        font-size: 8.5pt;
+        color: #444444;
+      }
+      @bottom-right {
+        content: "{{ footer_meta | e }}";
+        font-family: "Liberation Sans", "Noto Sans", "DejaVu Sans", Helvetica, Arial, sans-serif;
+        font-size: 8.5pt;
+        color: #444444;
+      }
+    }
+
+    @page :first {
+      margin: 0;
+      @bottom-left { content: none; }
+      @bottom-right { content: none; }
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      color: var(--ink);
+      font-family: "Liberation Sans", "Noto Sans", "DejaVu Sans", Helvetica, Arial, sans-serif;
+      font-size: 10pt;
+      line-height: 1.5;
+      background: #fff;
+    }
+
+    /* —— Cover —— */
+    .cover {
+      min-height: 297mm;
+      padding: 18mm 18mm 22mm;
+      position: relative;
+      page-break-after: always;
+    }
+
+    /* Top brand hairline — cover only */
+    .cover::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2.5mm;
+      background: var(--rail);
+    }
+
+    .brand-row {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      margin-top: 4mm;
+      margin-bottom: 68mm;
+    }
+
+    /* App favicon mark (rounded tile; alpha corners + radius for Chromium PDF) */
+    .brand-mark {
+      width: 30px;
+      height: 30px;
+      display: block;
+      flex-shrink: 0;
+      object-fit: contain;
+      border-radius: 22%;
+      overflow: hidden;
+    }
+
+    .brand-name {
+      font-size: 16pt;
+      font-weight: 700;
+      color: var(--ink);
+      letter-spacing: -0.01em;
+      line-height: 1.2;
+    }
+
+    .cover-title {
+      margin: 0 0 14mm;
+      font-size: 36pt;
+      font-weight: 700;
+      line-height: 1.12;
+      letter-spacing: -0.025em;
+      max-width: 13.5cm;
+    }
+
+    .cover-meta {
+      display: grid;
+      gap: 7mm;
+    }
+
+    .cover-field-label {
+      margin: 0 0 3px;
+      font-family: "Liberation Mono", "Noto Mono", "DejaVu Sans Mono", monospace;
+      font-size: 8pt;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--faint);
+      line-height: 1.4;
+    }
+
+    .cover-field-value {
+      margin: 0;
+      font-size: 13pt;
+      font-weight: 700;
+      color: var(--ink);
+      line-height: 1.35;
+    }
+
+    .cover-field-value.date {
+      font-family: "Liberation Mono", "Noto Mono", "DejaVu Sans Mono", monospace;
+      font-size: 12pt;
+      font-weight: 700;
+    }
+
+    /* —— Findings —— */
+    .findings {
+      padding-top: 1mm;
+    }
+
+    .section-title {
+      margin: 0 0 8mm;
+      font-size: 30pt;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+    }
+
+    .finding {
+      margin: 0 0 11mm;
+      page-break-inside: avoid;
+    }
+
+    .finding-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 2px;
+    }
+
+    .finding-title {
+      margin: 0;
+      flex: 1;
+      font-size: 13.5pt;
+      font-weight: 700;
+      line-height: 1.3;
+      letter-spacing: -0.01em;
+    }
+
+    /* Plain rectangle badge (replaces slanted parallelogram) */
+    .sev-badge {
+      flex: 0 0 auto;
+      display: inline-block;
+      margin-top: 1px;
+      padding: 2px 9px;
+      border-radius: 0;
+      font-size: 8pt;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      line-height: 1.35;
+    }
+
+    .sev-badge.sev-critical {
+      background: var(--sev-critical-bg);
+      color: var(--sev-critical-ink);
+    }
+    .sev-badge.sev-high {
+      background: var(--sev-high-bg);
+      color: var(--sev-high-ink);
+    }
+    .sev-badge.sev-medium {
+      background: var(--sev-medium-bg);
+      color: var(--sev-medium-ink);
+    }
+    .sev-badge.sev-low {
+      background: var(--sev-low-bg);
+      color: var(--sev-low-ink);
+    }
+    .sev-badge.sev-info {
+      background: var(--sev-info-bg);
+      color: var(--sev-info-ink);
+    }
+
+    .finding-meta {
+      margin: 0 0 5.5mm;
+      font-size: 9.5pt;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .subhead {
+      margin: 0 0 2mm;
+      font-size: 10.5pt;
+      font-weight: 700;
+      line-height: 1.35;
+    }
+
+    .body-text {
+      margin: 0 0 5mm;
+      max-width: 48em;
+      color: var(--ink);
+      line-height: 1.5;
+      text-align: justify;
+      hyphens: auto;
+    }
+
+    .asset {
+      margin: 0 0 6mm;
+      page-break-inside: avoid;
+    }
+
+    .asset-name {
+      margin: 0 0 1px;
+      font-size: 11pt;
+      font-weight: 700;
+      line-height: 1.35;
+    }
+
+    /* Middots only — diamond marker removed */
+    .asset-line {
+      margin: 0 0 3.5mm;
+      font-size: 9.5pt;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .asset-line .status {
+      color: var(--ink);
+      font-weight: 400;
+    }
+
+    .evidence {
+      margin: 0 0 3mm;
+      width: 100%;
+      border: 1px solid var(--rule);
+      background: #fff;
+      break-inside: avoid;
+    }
+
+    .evidence-head {
+      margin: 0;
+      padding: 5px 10px 4px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--rule);
+      font-size: 9pt;
+      font-weight: 700;
+      line-height: 1.35;
+    }
+
+    .evidence-body {
+      margin: 0;
+      padding: 8px 10px 9px;
+      background: #fff;
+      font-family: "Liberation Mono", "Noto Mono", "DejaVu Sans Mono", monospace;
+      font-size: 8.5pt;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: var(--ink);
+    }
+
+    .empty {
+      color: var(--muted);
+      font-size: 11pt;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <section class="cover">
+    <div class="brand-row">
+      <img class="brand-mark" src="{{ brand_mark_src }}" alt="" width="30" height="30" />
+      <div class="brand-name">{{ brand_name }}</div>
+    </div>
+    <h1 class="cover-title">{{ assessment_name }}</h1>
+    <div class="cover-meta">
+      <div>
+        <p class="cover-field-label">Client</p>
+        <p class="cover-field-value">{{ client_name }}</p>
+      </div>
+      <div>
+        <p class="cover-field-label">Date</p>
+        <p class="cover-field-value date">{{ report_date }}</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="findings">
+    <h2 class="section-title">Findings</h2>
+
+    {% if not findings %}
+      <p class="empty">No findings recorded for this assessment.</p>
+    {% endif %}
+
+    {% for finding in findings %}
+      <article class="finding">
+        <div class="finding-head">
+          <h3 class="finding-title">{{ finding.index }}. {{ finding.title }}</h3>
+          <span class="sev-badge sev-{{ finding.severity_key }}">{{ finding.severity }}</span>
+        </div>
+        {% if finding.meta_line %}
+          <p class="finding-meta">{{ finding.meta_line }}</p>
+        {% endif %}
+
+        <h4 class="subhead">{{ finding.index }}.1 Description</h4>
+        <p class="body-text">{{ finding.description or "—" }}</p>
+
+        <h4 class="subhead">{{ finding.index }}.2 Remediation</h4>
+        <p class="body-text">{{ finding.recommendation or "—" }}</p>
+
+        <h4 class="subhead">{{ finding.index }}.3 Assets</h4>
+        {% if not finding.assets %}
+          <p class="body-text">—</p>
+        {% endif %}
+        {% for asset in finding.assets %}
+          <div class="asset">
+            <p class="asset-name">{{ asset.asset_name }}</p>
+            <p class="asset-line">
+              {{ asset.asset_type }}
+              ·
+              <span class="status">{{ asset.status }}</span>
+              · {{ asset.discovered_by }}
+              {% if asset.created_at %} · {{ asset.created_at }}{% endif %}
+            </p>
+
+            {% for block in asset.evidence_blocks %}
+              <div class="evidence">
+                <p class="evidence-head">{{ block.heading }}</p>
+                <pre class="evidence-body">{{ block.content }}</pre>
+              </div>
+            {% endfor %}
+          </div>
+        {% endfor %}
+      </article>
+    {% endfor %}
+  </section>
+</body>
+</html>
