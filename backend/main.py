@@ -10,7 +10,6 @@ setup_app_logging()
 
 from pathlib import Path
 from fastapi import Depends, FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from database.db import engine
@@ -83,14 +82,6 @@ app = FastAPI(
             "description": "Irreversible reset of the workspace or the global template library.",
         },
     ],
-)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"], 
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
 )
 
 # Authentication routes (unprotected)
