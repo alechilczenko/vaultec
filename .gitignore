@@ -40,6 +40,7 @@ htmlcov/
 
 # Local workspace docs, scripts & fixtures
 AGENTS.md
-docs/
+docs/*
+!docs/API_IMPORT.md
 fixtures/
 backend/scripts/

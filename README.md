@@ -96,27 +96,17 @@ Open http://localhost:8000/ and sign in as `admin` with `ADMIN_SETUP_PASSWORD`.
 
 ## API Automation Example
 
-Every action in the UI is backed by the REST API. You can parse output from any scanner (Nuclei, Nessus, Burp, Nmap, or custom scripts) into the bulk import schema and push it directly into the active workspace:
+Every action in the UI is backed by the REST API. You can parse output from any scanner (Nuclei, Nessus, Burp, Nmap, or custom scripts) into the bulk import schema and push it directly into the active workspace. Full flow (auth, setup, assets, findings): [`docs/API_IMPORT.md`](docs/API_IMPORT.md). Swagger UI at `/docs` when the server is running.
 
 ```bash
 # Ingest parsed scanner findings atomically (all-or-nothing)
 curl -s -X POST -H "Authorization: Bearer <TOKEN>" \
   -H "Content-Type: application/json" \
-  -d @parsed-scanner-output.json \
+  -d @findings.json \
   http://localhost:8000/findings/import
-
-# Download findings PDF report
-curl -s -H "Authorization: Bearer <TOKEN>" \
-  http://localhost:8000/findings/report -o findings-report.pdf
-
-# Export full template library (JSON)
-curl -s -H "Authorization: Bearer <TOKEN>" \
-  http://localhost:8000/templates/export -o templates-library.json
 ```
 
 ## Gallery
-
-Finding workflow:
 
 ![Finding detail with HTTP evidence](.github/banners/04-finding-detail.png)
 
