@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>APP</h1>
+  <img src=".github/banners/vaultec-banner.png" alt="Vaultec" width="220" />
   <p>
     <img src="https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI" />
     <img src="https://img.shields.io/badge/PostgreSQL-336791?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL" />
@@ -10,7 +10,7 @@
 
 ---
 
-APP is a lightweight web workspace for managing active security assessments from start to finish. It lets you inventory assets, reuse standardized vulnerability definitions, and track findings with evidence and notes—without the overhead of heavy enterprise platforms.
+Vaultec is a lightweight web workspace for managing active security assessments from start to finish. It lets you inventory assets, reuse standardized vulnerability definitions, and track findings with evidence and notes—without the overhead of heavy enterprise platforms.
 
 Built for single-engagement focus, it separates reusable vulnerability templates from project-specific data. Its API-first design makes it easy to ingest output from any scanner and generate PDF reports at any point.
 
