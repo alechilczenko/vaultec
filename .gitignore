@@ -9,11 +9,11 @@ __pycache__/
 venv/
 env/
 ENV/
-backend/.venv/
+app/.venv/
 
 # Testing & coverage artifacts
 *_test.py
-backend/.schemathesis/
+app/.schemathesis/
 .pytest_cache/
 .coverage
 htmlcov/
@@ -43,4 +43,4 @@ AGENTS.md
 docs/*
 !docs/API_IMPORT.md
 fixtures/
-backend/scripts/
+app/scripts/

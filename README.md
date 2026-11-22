@@ -45,7 +45,7 @@ flowchart LR
 * **Single-Workspace Focus:** Designed around one active engagement at a time to eliminate context switching. Resetting the workspace clears assessment data while preserving your global template library.
 * **Scanner-Agnostic Ingestion:** Feed findings from any external vulnerability scanner or custom script via atomic bulk JSON imports (`POST /findings/import`) — all-or-nothing validation ensures partial or malformed batches never pollute the workspace.
 * **Findings PDF Report:** Download an A4 PDF grouped by vulnerability definition (`GET /findings/report`) with workspace metadata, at any stage of the engagement. Rendered via headless Chrome/Chromium on the server.
-* **Zero-Build UI:** Served directly by FastAPI using Jinja2 templates and Alpine.js (`backend/ui/`), requiring no Node.js runtime or bundler.
+* **Zero-Build UI:** Served directly by FastAPI using Jinja2 templates and Alpine.js (`app/ui/`), requiring no Node.js runtime or bundler.
 
 ## Installation
 
@@ -67,7 +67,7 @@ Defaults: user `admin`, password `password123`, database `app`, port `5432`. Ove
 ### Install
 
 ```bash
-cd backend
+cd app
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -75,7 +75,7 @@ pip install -r requirements.txt
 
 ### Configure
 
-Create `backend/.env`:
+Create `app/.env`:
 
 ```env
 SECRET_KEY=                 # openssl rand -hex 32  (min 32 chars)
@@ -88,7 +88,7 @@ On first boot the app creates tables and ensures a user `admin` with `ADMIN_SETU
 ### Start
 
 ```bash
-cd backend
+cd app
 source .venv/bin/activate
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
