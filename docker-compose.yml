@@ -1,7 +1,7 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: app-test-db
+    container_name: vaultec-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER:-admin}
@@ -11,6 +11,39 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-admin} -d ${DB_NAME:-app}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    image: vaultec:latest
+    container_name: vaultec
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
+      ADMIN_SETUP_PASSWORD: ${ADMIN_SETUP_PASSWORD:?Set ADMIN_SETUP_PASSWORD in .env}
+      DATABASE_URL: postgresql://${DB_USER:-admin}:${DB_PASSWORD:-password123}@db:5432/${DB_NAME:-app}
+      CHROME_PATH: /usr/bin/chromium
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
 
 volumes:
   postgres_data:

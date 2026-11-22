@@ -84,6 +84,11 @@ app = FastAPI(
     ],
 )
 
+@app.get("/health", include_in_schema=False)
+def health():
+    return {"status": "ok"}
+
+
 # Authentication routes (unprotected)
 app.include_router(auth.router)
 

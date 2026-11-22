@@ -49,22 +49,34 @@ flowchart LR
 
 ## Installation
 
-**Requirements:** Python 3.11+, Docker (or PostgreSQL 16), and Google Chrome or Chromium (needed for `GET /findings/report` PDF rendering; without it the API returns 503).
+**Requirements:** Docker (recommended), or Python 3.11+ with PostgreSQL 16 and Google Chrome/Chromium for PDF reports (`GET /findings/report` returns 503 without a browser).
 
 ```bash
 git clone https://github.com/alechilczenko/vaultec.git
 cd vaultec
 ```
 
-### Database
+### Docker (app + database)
 
 ```bash
-docker compose up -d
+cp .env.example .env
+# set SECRET_KEY (openssl rand -hex 32) and ADMIN_SETUP_PASSWORD in .env
+docker compose up -d --build
 ```
 
-Defaults: user `admin`, password `password123`, database `app`, port `5432`. Override with `DB_USER`, `DB_PASSWORD`, and `DB_NAME` if needed.
+`ADMIN_SETUP_PASSWORD` must be at least 12 characters and include uppercase, lowercase, a digit, and a symbol — otherwise the app exits on startup. Open http://localhost:8000/ and sign in as `admin` with that password. The image includes Chromium for PDF reports.
 
-### Install
+Defaults for Postgres: user `admin`, password `password123`, database `app`, port `5432`. Override with `DB_USER`, `DB_PASSWORD`, and `DB_NAME` if needed.
+
+### Local development
+
+Start only the database:
+
+```bash
+docker compose up -d db
+```
+
+Install and configure the app:
 
 ```bash
 cd app
@@ -73,19 +85,15 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Configure
-
 Create `app/.env`:
 
 ```env
 SECRET_KEY=                 # openssl rand -hex 32  (min 32 chars)
-ADMIN_SETUP_PASSWORD=       # 12+ chars; upper, lower, digit, symbol
+ADMIN_SETUP_PASSWORD=       # see complexity rules below
 DATABASE_URL=postgresql://admin:password123@localhost:5432/app
 ```
 
-On first boot the app creates tables and ensures a user `admin` with `ADMIN_SETUP_PASSWORD`.
-
-### Start
+`ADMIN_SETUP_PASSWORD` must be at least 12 characters and include uppercase, lowercase, a digit, and a symbol — otherwise the app exits on startup. On first boot the app creates tables and ensures a user `admin` with that password.
 
 ```bash
 cd app
