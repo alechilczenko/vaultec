@@ -27,7 +27,7 @@ from utils.slug import slugify
 _UI_ROOT = Path(__file__).resolve().parent.parent / "ui"
 _TEMPLATE_DIR = _UI_ROOT / "pages" / "reports"
 _BRAND_MARK_PATH = _UI_ROOT / "static" / "img" / "favicon-64.png"
-_BRAND_NAME = "Fieldkit"
+_BRAND_NAME = "Vaultec"
 
 
 @lru_cache(maxsize=4)

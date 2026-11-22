@@ -52,8 +52,8 @@ flowchart LR
 **Requirements:** Python 3.11+, Docker (or PostgreSQL 16), and Google Chrome or Chromium (needed for `GET /findings/report` PDF rendering; without it the API returns 503).
 
 ```bash
-git clone https://github.com/alechilczenko/APP.git
-cd APP
+git clone https://github.com/alechilczenko/vaultec.git
+cd vaultec
 ```
 
 ### Database

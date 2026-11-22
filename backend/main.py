@@ -36,11 +36,11 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     lifespan=lifespan,
-    title="API",
+    title="Vaultec",
     description=cleandoc("""
-        ## Vulnerability Management Platform
-        Standardized API for managing active audit workspace, assets, vulnerability templates, and security findings.
-        
+        ## Vaultec
+        Open-source workspace API for active security assessments: assets, vulnerability templates, and findings.
+
         ### Features:
         * **Workspace**: Manage active audit context.
         * **Assets**: Manage infrastructure inventory.
