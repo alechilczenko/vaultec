@@ -756,6 +756,7 @@ document.addEventListener("alpine:init", () => {
     createdTemplate: null,
     assetQuery: "",
     assetError: "",
+    selectedAssets: [],
     templateQuery: "",
     severityPreview: "",
     descriptionExpanded: false,
@@ -1008,13 +1009,19 @@ document.addEventListener("alpine:init", () => {
     get canSubmitCompose() {
       const title = this.form.title.trim();
       if (!title || title.length > 80) return false;
-      if (this.mode === "create" && !this.form.asset_name) return false;
+      if (this.mode === "create" && !this.selectedAssets.length) return false;
       if (this.mode === "create" && !this.form.severity) return false;
       if (String(this.form.notes || "").length > 2000) return false;
       if (String(this.form.discovered_by || "").length > 24) return false;
       const evidence = evidencePayloadFromForm(this.form);
       if (evidenceByteSize(evidence) > MAX_EVIDENCE_BYTES) return false;
       return true;
+    },
+
+    get createSubmitLabel() {
+      const n = this.selectedAssets.length;
+      if (n > 1) return `Create ${n} findings`;
+      return "Create finding";
     },
 
     get templateSeverityOptions() {
@@ -1462,6 +1469,7 @@ document.addEventListener("alpine:init", () => {
       this.detailError = "";
       this.assetQuery = "";
       this.assetError = "";
+      this.selectedAssets = [];
       this.templateQuery = "";
       this.severityPreview = "";
       this.pickingEvidenceType = false;
@@ -1481,6 +1489,7 @@ document.addEventListener("alpine:init", () => {
       this.form = emptyForm();
       this.assetQuery = "";
       this.assetError = "";
+      this.selectedAssets = [];
       this.templateQuery = "";
       this.wizardStep = "setup";
       this.draftOrigin = "scratch";
@@ -1497,32 +1506,63 @@ document.addEventListener("alpine:init", () => {
       this.mode = "edit";
     },
 
-    resolveAsset() {
+    findAssetByQuery(query) {
+      const key = String(query || "").trim().toLowerCase();
+      if (!key) return null;
+      return (
+        this.assets.find(
+          (item) => String(item.name || "").trim().toLowerCase() === key
+        ) || null
+      );
+    },
+
+    addSelectedAsset() {
       const query = this.assetQuery.trim();
       if (!query) {
         this.assetError = "Enter a target asset.";
-        return null;
+        return false;
       }
-      const key = query.toLowerCase();
-      const asset = this.assets.find(
-        (item) => String(item.name || "").trim().toLowerCase() === key
-      );
+      const asset = this.findAssetByQuery(query);
       if (!asset) {
         this.assetError = `No asset matches “${query}”.`;
-        return null;
+        return false;
+      }
+      if (!this.selectedAssets.some((item) => item.id === asset.id)) {
+        this.selectedAssets = [
+          ...this.selectedAssets,
+          { id: asset.id, name: asset.name },
+        ];
+      }
+      this.assetQuery = "";
+      this.assetError = "";
+      return true;
+    },
+
+    removeSelectedAsset(assetId) {
+      this.selectedAssets = this.selectedAssets.filter(
+        (item) => item.id !== assetId
+      );
+    },
+
+    requireSelectedAssets() {
+      if (this.assetQuery.trim()) {
+        if (!this.addSelectedAsset()) return false;
+      }
+      if (!this.selectedAssets.length) {
+        this.assetError = "Add at least one target asset.";
+        return false;
       }
       this.assetError = "";
-      this.form = { ...this.form, asset_name: asset.name };
-      return asset;
+      return true;
     },
 
     startFromTemplate(definition) {
-      if (!this.resolveAsset()) return;
+      if (!this.requireSelectedAssets()) return;
       this.draftOrigin = "template";
       this.form = applyDefinition(
         {
           ...emptyForm(),
-          asset_name: this.form.asset_name,
+          asset_name: this.selectedAssets[0]?.name || "",
           evidencePackages: [],
           discovered_by: "",
           notes: "",
@@ -1548,7 +1588,7 @@ document.addEventListener("alpine:init", () => {
       this.templateSeverityPreview = "";
       const created = discard ? null : this.createdTemplate;
       this.createdTemplate = null;
-      if (!created || !this.assetQuery.trim() || !this.resolveAsset()) return;
+      if (!created || !this.requireSelectedAssets()) return;
       this.startFromTemplate(created);
     },
 
@@ -1740,6 +1780,8 @@ document.addEventListener("alpine:init", () => {
 
     async saveCreate() {
       if (!this.canSubmitCompose) return;
+      const assets = [...this.selectedAssets];
+      if (!assets.length) return;
       if (this.draftOrigin === "scratch") {
         const dup = findTemplateByTitle(this.templates, this.form.title);
         if (dup) {
@@ -1754,19 +1796,55 @@ document.addEventListener("alpine:init", () => {
         }
       }
       this.saving = true;
+      const created = [];
+      const failures = [];
+      let definitionId = this.form.definition_id ?? null;
       try {
-        const created = fromApiFindingDetail(
-          await api.post("/findings/create", toCreateBody(this.form), {
-            defaultErrorMessage: "Could not create finding",
-          })
-        );
+        for (const asset of assets) {
+          try {
+            const body = toCreateBody({
+              ...this.form,
+              asset_name: asset.name,
+              definition_id: definitionId,
+            });
+            const detail = fromApiFindingDetail(
+              await api.post("/findings/create", body, {
+                defaultErrorMessage: `Could not create finding on ${asset.name}`,
+              })
+            );
+            created.push(detail);
+            if (definitionId == null && detail.definition_id != null) {
+              definitionId = detail.definition_id;
+              this.form = { ...this.form, definition_id: definitionId };
+            }
+          } catch (err) {
+            failures.push({
+              name: asset.name,
+              message: err.message || `Could not create finding on ${asset.name}`,
+            });
+          }
+        }
         await this.load();
         await this.loadTemplates();
-        this.openDetail(created);
-        toast.show(`Created finding #${created.id}`);
-      } catch (err) {
-        const message = err.message || "Could not create finding";
-        toast.show(message, { tone: "danger" });
+        if (created.length) {
+          this.openDetail(created[0]);
+          if (failures.length) {
+            const failed = failures.map((f) => f.name).join(", ");
+            toast.show(
+              `Created ${created.length} of ${assets.length}. Failed: ${failed}`,
+              { tone: "danger" }
+            );
+          } else if (created.length === 1) {
+            toast.show(`Created finding #${created[0].id}`);
+          } else {
+            toast.show(`Created ${created.length} findings`);
+          }
+        } else {
+          toast.show(
+            failures[0]?.message || "Could not create finding",
+            { tone: "danger" }
+          );
+        }
       } finally {
         this.saving = false;
       }

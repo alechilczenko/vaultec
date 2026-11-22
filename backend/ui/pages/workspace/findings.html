@@ -4,7 +4,7 @@
 {% from "partials/severity_picker.html" import severity_picker %}
 {% block title %}Findings{% endblock %}
 {% block page_head %}
-  <link rel="stylesheet" href="/static/css/pages/findings.css?v=tpl-empty1" />
+  <link rel="stylesheet" href="/static/css/pages/findings.css?v=multi-asset1" />
 {% endblock %}
 {% block content %}
   <div class="findings-page workspace" x-data="findingsPage" x-cloak>
@@ -558,23 +558,48 @@
             <!-- Setup step -->
             <div class="wizard-step finding-setup" x-show="mode === 'create' && wizardStep === 'setup'">
               <div class="form-group">
-                <label class="form-label" for="finding-asset">Target asset</label>
-                <input
-                  id="finding-asset"
-                  class="form-input"
-                  list="finding-asset-options"
-                  x-model="assetQuery"
-                  maxlength="255"
-                  placeholder="e.g. api.northwind.io"
-                  autocomplete="off"
-                  spellcheck="false"
-                  :disabled="saving"
-                />
+                <label class="form-label" for="finding-asset">Target assets</label>
+                <div class="asset-multi-add">
+                  <input
+                    id="finding-asset"
+                    class="form-input"
+                    list="finding-asset-options"
+                    x-model="assetQuery"
+                    maxlength="255"
+                    placeholder="e.g. api.northwind.io"
+                    autocomplete="off"
+                    spellcheck="false"
+                    :disabled="saving"
+                    @keydown.enter.prevent="addSelectedAsset()"
+                  />
+                  <button
+                    type="button"
+                    class="base-button size-md variant-secondary"
+                    @click="addSelectedAsset()"
+                    :disabled="saving || !assetQuery.trim()"
+                  >Add</button>
+                </div>
                 <datalist id="finding-asset-options">
                   <template x-for="asset in assets" :key="asset.id">
                     <option :value="asset.name"></option>
                   </template>
                 </datalist>
+                <ul class="asset-chip-list" x-show="selectedAssets.length" x-cloak>
+                  <template x-for="asset in selectedAssets" :key="asset.id">
+                    <li class="asset-chip">
+                      <span class="asset-chip-label" x-text="asset.name"></span>
+                      <button
+                        type="button"
+                        class="asset-chip-remove"
+                        :title="'Remove ' + asset.name"
+                        :aria-label="'Remove ' + asset.name"
+                        @click="removeSelectedAsset(asset.id)"
+                        :disabled="saving"
+                        x-html="$icon('close', 12)"
+                      ></button>
+                    </li>
+                  </template>
+                </ul>
                 <p class="error-banner" x-show="assetError" x-cloak role="alert">
                   <span x-html="$icon('warning', 16)"></span>
                   <span x-text="assetError"></span>
@@ -654,7 +679,13 @@
             <div class="wizard-step" x-show="mode === 'edit' || wizardStep === 'compose'">
               <form class="compose-form" @submit.prevent="mode === 'create' ? saveCreate() : saveEdit()">
                 <div class="context-row">
-                  <div class="context-pill" x-show="form.asset_name">
+                  <template x-for="asset in selectedAssets" :key="'compose-asset-' + asset.id">
+                    <div class="context-pill">
+                      <span x-html="$icon('asset', 14)"></span>
+                      <span x-text="asset.name"></span>
+                    </div>
+                  </template>
+                  <div class="context-pill" x-show="mode === 'edit' && form.asset_name">
                     <span x-html="$icon('asset', 14)"></span>
                     <span x-text="form.asset_name"></span>
                   </div>
@@ -875,7 +906,7 @@
               >
                 <span x-show="saving" class="btn-spinner" x-html="$icon('loading', 16)"></span>
                 <span x-show="!saving" x-html="$icon(mode === 'create' ? 'plus' : 'check', 16)"></span>
-                <span x-text="saving ? 'Saving…' : (mode === 'create' ? 'Create finding' : 'Save changes')"></span>
+                <span x-text="saving ? 'Saving…' : (mode === 'create' ? createSubmitLabel : 'Save changes')"></span>
               </button>
             </div>
           </div>
@@ -1277,5 +1308,5 @@
   </div>
 {% endblock %}
 {% block page_scripts %}
-  <script src="/static/js/controllers/findings.js?v=evidence-caption1"></script>
+  <script src="/static/js/controllers/findings.js?v=multi-asset1"></script>
 {% endblock %}
